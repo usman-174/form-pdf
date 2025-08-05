@@ -182,7 +182,7 @@ export default function TextElement({
       textDecoration,
       lineHeight: 1.2,
       margin: 0,
-      padding: '4px 6px',
+      padding: '2px 2px',
       borderRadius: '3px',
       minWidth: '30px',
       minHeight: '20px',

@@ -1,9 +1,8 @@
-
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
 import Controls from '@/components/Controls'
-import { downloadPDFWithText, analyzePDFForDefaultFont } from '@/lib/pdf-utils'
+import { downloadPDFWithText, previewPDFWithText, analyzePDFForDefaultFont } from '@/lib/pdf-utils'
 import dynamic from 'next/dynamic'
 
 // Dynamic import with proper loading state
@@ -38,6 +37,7 @@ export default function Page() {
   // PDF state
   const [pdfFile, setPdfFile] = useState<File | null>(null)
   const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null)
+  const [previewPdfData, setPreviewPdfData] = useState<ArrayBuffer | null>(null)
   const [numPages, setNumPages] = useState<number>(1)
   const [currentPage, setCurrentPage] = useState<number>(1)
   
@@ -47,6 +47,7 @@ export default function Page() {
   
   // UI state
   const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [isPreviewMode, setIsPreviewMode] = useState<boolean>(false)
 
   // Handle PDF file upload
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,9 +62,11 @@ export default function Page() {
       const arrayBuffer = await file.arrayBuffer()
       setPdfFile(file)
       setPdfData(arrayBuffer)
+      setPreviewPdfData(null) // Clear preview when new file is loaded
       setTextElements([]) // Clear existing text elements
       setSelectedElementId(null)
       setCurrentPage(1)
+      setIsPreviewMode(false) // Exit preview mode when new file is loaded
     } catch (error) {
       console.error('Error loading PDF:', error)
       alert('Error loading PDF file')
@@ -74,7 +77,7 @@ export default function Page() {
 
   // Add new text element with smart defaults
   const addTextElement = useCallback(async () => {
-    if (!pdfData) return
+    if (!pdfData || isPreviewMode) return
 
     try {
       // Try to analyze PDF for default font properties
@@ -93,7 +96,7 @@ export default function Page() {
       const newElement: TextElement = {
         id: `text-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         content: 'New Text',
-        x: 100,
+        x: 200,
         y: 100,
         fontSize: defaultFont.fontSize,
         fontFamily: defaultFont.fontFamily,
@@ -126,10 +129,12 @@ export default function Page() {
       setTextElements(prev => [...prev, newElement])
       setSelectedElementId(newElement.id)
     }
-  }, [pdfData, currentPage])
+  }, [pdfData, currentPage, isPreviewMode])
 
   // Update text element with logging
   const updateTextElement = useCallback((id: string, updates: Partial<TextElement>) => {
+    if (isPreviewMode) return // Don't allow updates in preview mode
+    
     console.log('Updating element:', id, 'with updates:', updates)
     setTextElements(prev => {
       const updated = prev.map(element => 
@@ -138,25 +143,76 @@ export default function Page() {
       console.log('Updated elements:', updated)
       return updated
     })
-  }, [])
+  }, [isPreviewMode])
 
   // Delete text element
   const deleteTextElement = useCallback((id: string) => {
+    if (isPreviewMode) return // Don't allow deletion in preview mode
+    
     setTextElements(prev => prev.filter(element => element.id !== id))
     if (selectedElementId === id) {
       setSelectedElementId(null)
     }
-  }, [selectedElementId])
+  }, [selectedElementId, isPreviewMode])
 
   // Handle text element selection
   const selectTextElement = useCallback((id: string | null) => {
+    if (isPreviewMode) return // Don't allow selection in preview mode
     setSelectedElementId(id)
-  }, [])
+  }, [isPreviewMode])
 
   // Get selected text element
   const selectedElement = selectedElementId 
     ? textElements.find(el => el.id === selectedElementId) || null
     : null
+
+  // Handle preview toggle
+  const handlePreview = useCallback(async () => {
+    if (!pdfData || !pdfFile) {
+      alert('No PDF loaded')
+      return
+    }
+
+    if (isPreviewMode) {
+      // Exit preview mode
+      setIsPreviewMode(false)
+      setPreviewPdfData(null)
+      setSelectedElementId(null)
+      return
+    }
+
+    // Enter preview mode
+    setIsLoading(true)
+    try {
+      // Validate text elements before processing
+      const validElements = textElements.filter(element => {
+        const isValid = element && 
+          typeof element.id === 'string' && 
+          typeof element.content === 'string' && 
+          typeof element.x === 'number' && 
+          typeof element.y === 'number' && 
+          typeof element.pageNumber === 'number'
+        
+        if (!isValid) {
+          console.error('Invalid element found for preview:', element)
+        }
+        return isValid
+      })
+
+      console.log('Generating preview with valid elements:', validElements)
+
+      // Generate preview PDF
+      const previewArrayBuffer = await previewPDFWithText(pdfData, validElements)
+      setPreviewPdfData(previewArrayBuffer)
+      setIsPreviewMode(true)
+      setSelectedElementId(null) // Clear selection in preview mode
+    } catch (error) {
+      console.error('Error generating preview:', error)
+      alert(`Error generating preview: ${error.message || error}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [pdfData, pdfFile, textElements, isPreviewMode])
 
   // Handle PDF download with better error handling
   const handleDownload = useCallback(async () => {
@@ -205,49 +261,76 @@ export default function Page() {
     }
   }, [pdfData, pdfFile, textElements])
 
-  // Get text elements for current page
-  const currentPageTextElements = textElements.filter(
-    element => element.pageNumber === currentPage
-  )
+  // Get text elements for current page (only show in edit mode)
+  const currentPageTextElements = isPreviewMode 
+    ? [] // Don't show text elements overlay in preview mode
+    : textElements.filter(element => element.pageNumber === currentPage)
+
+  // Get the PDF data to display (preview or original)
+  const displayPdfData = isPreviewMode ? previewPdfData : pdfData
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto p-4">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            PDF Form Filler & Editor
-          </h1>
-          
-          {/* File Upload */}
-          <div className="mb-4">
-            <label 
-              htmlFor="pdf-upload" 
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
-              Upload PDF File
-            </label>
-            <input
-              id="pdf-upload"
-              type="file"
-              accept=".pdf,application/pdf"
-              onChange={handleFileUpload}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              disabled={isLoading}
-            />
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                PDF Form Filler & Editor
+              </h1>
+              {isPreviewMode && (
+                <div className="flex items-center text-purple-600">
+                  <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  <span className="text-sm font-medium">Preview Mode</span>
+                </div>
+              )}
+            </div>
+            
+            {/* Quick actions */}
+            {pdfData && (
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-500">
+                  {textElements.length} text element{textElements.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+            )}
           </div>
+          
+          {/* File Upload - Only show when not in preview mode */}
+          {!isPreviewMode && (
+            <div className="mt-4">
+              <label 
+                htmlFor="pdf-upload" 
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Upload PDF File
+              </label>
+              <input
+                id="pdf-upload"
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={handleFileUpload}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                disabled={isLoading}
+              />
+            </div>
+          )}
 
           {/* Loading indicator */}
           {isLoading && (
-            <div className="flex items-center text-blue-600">
+            <div className="flex items-center text-blue-600 mt-4">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-              Processing...
+              {isPreviewMode ? 'Generating preview...' : 'Processing...'}
             </div>
           )}
         </div>
 
         {/* Main Editor Area */}
-        {pdfData && (
+        {displayPdfData && (
           <div className="flex gap-6">
             {/* Controls Panel */}
             <div className="w-80 flex-shrink-0">
@@ -257,14 +340,16 @@ export default function Page() {
                 onUpdateElement={updateTextElement}
                 onDeleteElement={deleteTextElement}
                 onDownload={handleDownload}
+                onPreview={handlePreview}
                 isLoading={isLoading}
+                isPreviewMode={isPreviewMode}
               />
             </div>
 
             {/* PDF Viewer */}
             <div className="flex-1">
               <PDFViewer
-                pdfData={pdfData}
+                pdfData={displayPdfData}
                 textElements={currentPageTextElements}
                 selectedElementId={selectedElementId}
                 currentPage={currentPage}
@@ -273,13 +358,14 @@ export default function Page() {
                 onPageChange={setCurrentPage}
                 onTextElementUpdate={updateTextElement}
                 onTextElementSelect={selectTextElement}
+                // isPreviewMode={isPreviewMode}
               />
             </div>
           </div>
         )}
 
         {/* No PDF loaded state */}
-        {!pdfData && !isLoading && (
+        {!displayPdfData && !isLoading && (
           <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
             <div className="text-gray-400 mb-4">
               <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">

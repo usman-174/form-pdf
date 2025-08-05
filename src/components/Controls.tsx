@@ -9,7 +9,9 @@ interface ControlsProps {
   onUpdateElement: (id: string, updates: Partial<TextElement>) => void
   onDeleteElement: (id: string) => void
   onDownload: () => void
+  onPreview: () => void
   isLoading: boolean
+  isPreviewMode: boolean
 }
 
 const FONT_FAMILIES = [
@@ -32,7 +34,9 @@ export default function Controls({
   onUpdateElement,
   onDeleteElement,
   onDownload,
-  isLoading
+  onPreview,
+  isLoading,
+  isPreviewMode
 }: ControlsProps) {
 
   // Handle font family change
@@ -84,19 +88,21 @@ export default function Controls({
 
   return (
     <div className="space-y-6">
-      {/* Add Text Button */}
-      <div className="bg-white rounded-lg shadow-sm border p-4">
-        <button
-          onClick={onAddText}
-          disabled={isLoading}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg transition-colors"
-        >
-          + Add Text
-        </button>
-      </div>
+      {/* Add Text Button - Only show in edit mode */}
+      {!isPreviewMode && (
+        <div className="bg-white rounded-lg shadow-sm border p-4">
+          <button
+            onClick={onAddText}
+            disabled={isLoading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+          >
+            + Add Text
+          </button>
+        </div>
+      )}
 
-      {/* Text Formatting Controls */}
-      {selectedElement ? (
+      {/* Text Formatting Controls - Only show in edit mode */}
+      {!isPreviewMode && selectedElement ? (
         <div className="bg-white rounded-lg shadow-sm border p-4 space-y-4">
           <h3 className="font-medium text-gray-900 border-b pb-2">
             Text Formatting
@@ -228,7 +234,7 @@ export default function Controls({
             </button>
           </div>
         </div>
-      ) : (
+      ) : !isPreviewMode ? (
         <div className="bg-white rounded-lg shadow-sm border p-4">
           <div className="text-center text-gray-500 py-8">
             <svg className="mx-auto h-8 w-8 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -239,10 +245,14 @@ export default function Controls({
             </p>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Download Button */}
-      <div className="bg-white rounded-lg shadow-sm border p-4">
+      {/* Preview/Download Actions */}
+      <div className="bg-white rounded-lg shadow-sm border p-4 space-y-3">
+        {/* Preview Button */}
+       
+
+        {/* Download Button */}
         <button
           onClick={onDownload}
           disabled={isLoading}
@@ -264,17 +274,23 @@ export default function Controls({
         </button>
       </div>
 
+   
+      
+
       {/* Instructions */}
-      <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
-        <h4 className="font-medium text-blue-900 mb-2">How to use:</h4>
-        <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Click "Add Text" to create new text</li>
-          <li>• Drag text elements to position them</li>
-          <li>• Double-click text to edit content</li>
-          <li>• Click text to select and format it</li>
-          <li>• Use "Download PDF" to save changes</li>
-        </ul>
-      </div>
+      {!isPreviewMode && (
+        <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
+          <h4 className="font-medium text-blue-900 mb-2">How to use:</h4>
+          <ul className="text-sm text-blue-800 space-y-1">
+            <li>• Click "Add Text" to create new text</li>
+            <li>• Drag text elements to position them</li>
+            <li>• Double-click text to edit content</li>
+            <li>• Click text to select and format it</li>
+            <li>• Use "Preview PDF" to see final result</li>
+            <li>• Use "Download PDF" to save changes</li>
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,0 +1,60 @@
+�
+�
+ Project Requirement Document 
+Title: PDF Form Filler and Editor (POC) 
+Tech Stack: Next.js + Tailwind CSS 
+�
+�
+ Objective 
+Build a web-based proof-of-concept (POC) where users can: 
+1. Upload a PDF. 
+2. Drag and drop custom text onto the PDF canvas. 
+3. Modify the added text (font, size, color). 
+4. Download the modified PDF. 
+The main goal is to ensure the functionality works correctly and is free of bugs. Design is flexible 
+— no visual restrictions. --- 
+�
+�
+ Core Features & Functional Requirements 
+1. PDF Upload 
+Users can upload a .pdf file (preferably max 10–20 pages). 
+Uploaded PDF will be rendered on the screen using a viewer (e.g., pdfjs or react-pdf). 
+2. Text Drag & Drop 
+Users can add new text blocks onto the PDF by: 
+Clicking “Add Text” or dragging a text element from a panel. 
+Positioning it anywhere on the PDF. 
+Each text block must support: 
+Font styles: Bold, Italic, Underline. 
+Font family: At least 2–3 basic fonts (e.g., Arial, Times, Courier). 
+Font size adjustment. 
+Font color selection. 
+This should preserve alignment and match surrounding PDF text as closely as possible (in font, 
+size, and position). 
+Optional: Suggest default font/size based on scanned PDF text if feasible. 
+4. Canvas Navigation 
+User should be able to scroll through PDF pages. 
+Text elements should remain in their positions across interactions. 
+5. PDF Download 
+On clicking "Download", the user receives a new PDF with: 
+Original content unchanged. 
+All added or edited text properly embedded at correct positions. --- 
+�
+�
+ Non-Functional Requirements 
+⚙
+ Performance: Should work smoothly for standard PDFs (not heavy scanned files). 
+�
+�
+ Bug-free: Must be tested thoroughly for accurate text positioning and download correctness. 
+�
+�
+ Responsive: Should work on desktop at minimum. 
+�
+�
+ Flexible UI: Tailwind CSS to be used; UI design is not a priority for this version. --- 
+✅
+ Acceptance Criteria 
+I can upload a PDF and see it rendered. 
+I can add text blocks, drag and drop them, and customize style. 
+I can download the PDF with the added text appearing at the right positions. 
+No broken functionality or crashes. 

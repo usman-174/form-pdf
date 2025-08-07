@@ -1,9 +1,11 @@
-
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
 import Controls from '@/components/Controls'
+<<<<<<< HEAD
 import PredefinedTextPanel from '@/components/PredefinedTextPanel'
+=======
+>>>>>>> 2aea910a7c39968daefea0c9458c84f7e561e985
 import { downloadPDFWithText, previewPDFWithText, analyzePDFForDefaultFont } from '@/lib/pdf-utils'
 import dynamic from 'next/dynamic'
 
@@ -138,8 +140,13 @@ export default function Page() {
     }
   }, [])
 
+<<<<<<< HEAD
   // Add new text element at specific coordinates
   const addTextElementAtPosition = useCallback(async (x: number, y: number, content: string = 'New Text', isPredefined: boolean = false) => {
+=======
+  // Add new text element with smart defaults
+  const addTextElement = useCallback(async () => {
+>>>>>>> 2aea910a7c39968daefea0c9458c84f7e561e985
     if (!pdfData || isPreviewMode) return
 
     try {
@@ -158,9 +165,15 @@ export default function Page() {
       
       const newElement: TextElement = {
         id: `text-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+<<<<<<< HEAD
         content,
         x: Math.max(0, x),
         y: Math.max(0, y),
+=======
+        content: 'New Text',
+        x: 200,
+        y: 100,
+>>>>>>> 2aea910a7c39968daefea0c9458c84f7e561e985
         fontSize: defaultFont.fontSize,
         fontFamily: defaultFont.fontFamily,
         color: defaultFont.color,
@@ -197,6 +210,7 @@ export default function Page() {
       setSelectedElementId(newElement.id)
     }
   }, [pdfData, currentPage, isPreviewMode])
+<<<<<<< HEAD
 
   // Add regular text element (for button click)
   const addTextElement = useCallback(async () => {
@@ -215,6 +229,8 @@ export default function Page() {
     console.log('Dropped predefined text:', text, 'at screen coordinates:', screenX, screenY)
     addPredefinedText(text)
   }, [addPredefinedText])
+=======
+>>>>>>> 2aea910a7c39968daefea0c9458c84f7e561e985
 
   // Update text element with logging
   const updateTextElement = useCallback((id: string, updates: Partial<TextElement>) => {
@@ -377,6 +393,7 @@ export default function Page() {
             
             {/* Quick actions */}
             {pdfData && (
+<<<<<<< HEAD
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-500">
                   {textElements.length} text element{textElements.length !== 1 ? 's' : ''}
@@ -391,6 +408,12 @@ export default function Page() {
                     Double-click PDF to add text
                   </div>
                 )}
+=======
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-500">
+                  {textElements.length} text element{textElements.length !== 1 ? 's' : ''}
+                </span>
+>>>>>>> 2aea910a7c39968daefea0c9458c84f7e561e985
               </div>
             )}
           </div>
@@ -450,6 +473,7 @@ export default function Page() {
 
             {/* PDF Viewer with Drop Zone */}
             <div className="flex-1">
+<<<<<<< HEAD
               <PDFDropZone onDropPredefinedText={handleDropPredefinedText}>
                 <PDFViewer
                   pdfData={displayPdfData}
@@ -465,6 +489,20 @@ export default function Page() {
                   isPreviewMode={isPreviewMode}
                 />
               </PDFDropZone>
+=======
+              <PDFViewer
+                pdfData={displayPdfData}
+                textElements={currentPageTextElements}
+                selectedElementId={selectedElementId}
+                currentPage={currentPage}
+                numPages={numPages}
+                onNumPagesChange={setNumPages}
+                onPageChange={setCurrentPage}
+                onTextElementUpdate={updateTextElement}
+                onTextElementSelect={selectTextElement}
+                // isPreviewMode={isPreviewMode}
+              />
+>>>>>>> 2aea910a7c39968daefea0c9458c84f7e561e985
             </div>
           </div>
         )}

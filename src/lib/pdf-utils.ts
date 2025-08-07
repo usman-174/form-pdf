@@ -1,3 +1,4 @@
+
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 
 // Updated interface to match your TextElement interface
@@ -13,75 +14,114 @@ export interface TextElement {
   italic: boolean
   underline: boolean
   pageNumber: number
+  isPredefined?: boolean
 }
 
-// Font mapping for pdf-lib
-const getFontForFamily = async (pdfDoc: PDFDocument, fontFamily: string) => {
-  switch (fontFamily.toLowerCase()) {
-    case 'times':
-    case 'times new roman':
+// Font mapping for pdf-lib with better font handling
+const getFontForFamily = async (pdfDoc: PDFDocument, fontFamily: string, isBold: boolean = false, isItalic: boolean = false) => {
+  const family = fontFamily.toLowerCase()
+  
+  try {
+    // Handle font variations
+    if (family.includes('times') || family.includes('roman')) {
+      if (isBold && isItalic) return await pdfDoc.embedFont(StandardFonts.TimesRomanBoldItalic)
+      if (isBold) return await pdfDoc.embedFont(StandardFonts.TimesRomanBold)
+      if (isItalic) return await pdfDoc.embedFont(StandardFonts.TimesRomanItalic)
       return await pdfDoc.embedFont(StandardFonts.TimesRoman)
-    case 'courier':
-    case 'courier new':
+    }
+    
+    if (family.includes('courier')) {
+      if (isBold && isItalic) return await pdfDoc.embedFont(StandardFonts.CourierBoldOblique)
+      if (isBold) return await pdfDoc.embedFont(StandardFonts.CourierBold)
+      if (isItalic) return await pdfDoc.embedFont(StandardFonts.CourierOblique)
       return await pdfDoc.embedFont(StandardFonts.Courier)
-    case 'arial':
-    case 'helvetica':
-    default:
-      return await pdfDoc.embedFont(StandardFonts.Helvetica)
+    }
+    
+    // Default to Helvetica
+    if (isBold && isItalic) return await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique)
+    if (isBold) return await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+    if (isItalic) return await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
+    return await pdfDoc.embedFont(StandardFonts.Helvetica)
+    
+  } catch (error) {
+    console.warn('Font loading failed, falling back to Helvetica:', error)
+    return await pdfDoc.embedFont(StandardFonts.Helvetica)
   }
 }
 
-// Updated function to work with TextElement interface
-export async function downloadPDFWithText(
+// Core function to generate PDF with text elements
+async function generatePDFWithText(
   pdfData: ArrayBuffer,
   elements: TextElement[]
-): Promise<Blob> {
-  try {
-    console.log('Starting PDF generation with elements:', elements)
-    
-    // Convert ArrayBuffer to Uint8Array
-    const pdfBytes = new Uint8Array(pdfData)
-    const pdfDoc = await PDFDocument.load(pdfBytes)
-    
-    console.log('PDF loaded successfully, pages:', pdfDoc.getPageCount())
+): Promise<PDFDocument> {
+  console.log('Starting PDF generation with elements:', elements)
+  
+  // Validate input
+  if (!pdfData || !elements) {
+    throw new Error('Invalid input: pdfData and elements are required')
+  }
+  
+  // Convert ArrayBuffer to Uint8Array
+  const pdfBytes = new Uint8Array(pdfData)
+  const pdfDoc = await PDFDocument.load(pdfBytes)
+  
+  console.log('PDF loaded successfully, pages:', pdfDoc.getPageCount())
 
-    // Process each text element
-    for (const element of elements) {
+  // Group elements by page for efficient processing
+  const elementsByPage = elements.reduce((acc, element) => {
+    if (!acc[element.pageNumber]) {
+      acc[element.pageNumber] = []
+    }
+    acc[element.pageNumber].push(element)
+    return acc
+  }, {} as Record<number, TextElement[]>)
+
+  // Process each page
+  for (const [pageNumberStr, pageElements] of Object.entries(elementsByPage)) {
+    const pageNumber = parseInt(pageNumberStr)
+    const pageIndex = pageNumber - 1
+    
+    // Validate page exists
+    if (pageIndex < 0 || pageIndex >= pdfDoc.getPageCount()) {
+      console.warn(`Page ${pageNumber} is out of range, skipping elements`)
+      continue
+    }
+
+    const page = pdfDoc.getPage(pageIndex)
+    const { width, height } = page.getSize()
+    
+    console.log(`Processing page ${pageNumber} with dimensions:`, { width, height })
+
+    // Process elements on this page
+    for (const element of pageElements) {
       try {
         console.log('Processing element:', element)
         
         // Validate element data
-        if (!element || typeof element.pageNumber !== 'number' || !element.content) {
+        if (!validateTextElement(element)) {
           console.warn('Skipping invalid element:', element)
           continue
         }
 
-        // Get the page (pageNumber is 1-based, but getPage is 0-based)
-        const pageIndex = element.pageNumber - 1
-        if (pageIndex < 0 || pageIndex >= pdfDoc.getPageCount()) {
-          console.warn(`Page ${element.pageNumber} is out of range, skipping element:`, element)
-          continue
-        }
-
-        const page = pdfDoc.getPage(pageIndex)
-        const { width, height } = page.getSize()
-        
-        console.log(`Page ${element.pageNumber} dimensions:`, { width, height })
-
         // Get the appropriate font
-        let font
-        try {
-          font = await getFontForFamily(pdfDoc, element.fontFamily)
-        } catch (fontError) {
-          console.warn('Font loading failed, using default:', fontError)
-          font = await pdfDoc.embedFont(StandardFonts.Helvetica)
-        }
+        const font = await getFontForFamily(pdfDoc, element.fontFamily, element.bold, element.italic)
 
-        // Calculate position (PDF coordinate system has origin at bottom-left)
-        const x = element.x
-        const y = height - element.y - element.fontSize // Flip Y coordinate
+        // FIXED: Calculate position correctly
+        // The element.x and element.y are in PDF coordinate space (origin at top-left)
+        // PDF coordinate system has origin at bottom-left, so we need to convert
+        const x = Math.max(0, element.x)
+        // Convert Y coordinate: PDF origin is bottom-left, viewer origin is top-left
+        // We need to flip the Y coordinate and account for text positioning
+        const y = Math.max(0, height - element.y - (element.fontSize * 0.75))
 
-        console.log('Drawing text at position:', { x, y, text: element.content })
+        console.log('Drawing text at position:', { 
+          x, 
+          y, 
+          text: element.content,
+          originalY: element.y,
+          pageHeight: height,
+          fontSize: element.fontSize
+        })
 
         // Convert hex color to RGB
         const color = hexToRgb(element.color)
@@ -98,6 +138,19 @@ export async function downloadPDFWithText(
         // Draw the text
         page.drawText(element.content, textOptions)
         
+        // Handle underline if needed (pdf-lib doesn't support text decoration directly)
+        if (element.underline) {
+          const textWidth = estimateTextWidth(element.content, element.fontSize, element.fontFamily)
+          const underlineY = y - 2 // Position underline slightly below baseline
+          
+          page.drawLine({
+            start: { x, y: underlineY },
+            end: { x: x + textWidth, y: underlineY },
+            thickness: 1,
+            color: rgb(color.r / 255, color.g / 255, color.b / 255),
+          })
+        }
+        
         console.log('Successfully drew text:', element.content)
 
       } catch (elementError) {
@@ -105,7 +158,19 @@ export async function downloadPDFWithText(
         // Continue with other elements even if one fails
       }
     }
+  }
 
+  return pdfDoc
+}
+
+// Function for downloading PDF
+export async function downloadPDFWithText(
+  pdfData: ArrayBuffer,
+  elements: TextElement[]
+): Promise<Blob> {
+  try {
+    const pdfDoc = await generatePDFWithText(pdfData, elements)
+    
     console.log('Saving PDF...')
     const pdfBytesResult = await pdfDoc.save()
     
@@ -120,10 +185,41 @@ export async function downloadPDFWithText(
   }
 }
 
-// Helper function to convert hex color to RGB
+// Function for preview - returns ArrayBuffer for PDF viewer
+export async function previewPDFWithText(
+  pdfData: ArrayBuffer,
+  elements: TextElement[]
+): Promise<ArrayBuffer> {
+  try {
+    const pdfDoc = await generatePDFWithText(pdfData, elements)
+    
+    console.log('Generating preview PDF...')
+    const pdfBytesResult = await pdfDoc.save()
+    
+    console.log('Preview PDF generated successfully, size:', pdfBytesResult.length)
+    
+    // pdfBytesResult is a Uint8Array, we need to convert it to ArrayBuffer
+    return pdfBytesResult.buffer.slice(
+      pdfBytesResult.byteOffset, 
+      pdfBytesResult.byteOffset + pdfBytesResult.byteLength
+    )
+
+  } catch (error) {
+    console.error('Error in previewPDFWithText:', error)
+    throw new Error(`Failed to generate preview PDF: ${error.message}`)
+  }
+}
+
+// Helper function to convert hex color to RGB with better error handling
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   // Remove # if present and handle short hex codes
-  const sanitized = hex.replace(/^#/, '')
+  const sanitized = hex.replace(/^#/, '').trim()
+  
+  // Handle empty or invalid input
+  if (!sanitized) {
+    console.warn('Empty color value, using black')
+    return { r: 0, g: 0, b: 0 }
+  }
   
   let r, g, b
   
@@ -144,6 +240,12 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
     return { r: 0, g: 0, b: 0 }
   }
 
+  // Validate RGB values
+  if (isNaN(r) || isNaN(g) || isNaN(b)) {
+    console.warn('Invalid RGB values for color:', hex)
+    return { r: 0, g: 0, b: 0 }
+  }
+
   return { r, g, b }
 }
 
@@ -157,49 +259,108 @@ export async function analyzePDFForDefaultFont(
   color: string
 }> {
   try {
-    // For now, return sensible defaults
-    // In a more advanced implementation, you could analyze the PDF content
-    // to extract font information from existing text
-    
     console.log(`Analyzing PDF for default font on page ${pageNumber}`)
     
+    // For now, return sensible defaults
+    // In a more advanced implementation, you could analyze the PDF content
+    // to extract font information from existing text using pdf-lib or PDF.js
+    
     return {
-      fontSize: 14,
-      fontFamily: 'Arial',
+      fontSize: 12,
+      fontFamily: 'Helvetica',
       color: '#000000',
     }
   } catch (error) {
     console.warn('Error analyzing PDF font, using defaults:', error)
     return {
       fontSize: 12,
-      fontFamily: 'Arial',
+      fontFamily: 'Helvetica',
       color: '#000000',
     }
   }
 }
 
-// Additional utility function for font size estimation
+// Utility function for font size estimation with better accuracy
 export function estimateTextWidth(text: string, fontSize: number, fontFamily: string): number {
-  // Rough estimation - in a real app you might want more accurate text measurement
-  const avgCharWidth = fontSize * 0.6 // Approximate character width
+  // More accurate text width estimation based on font family
+  let avgCharWidth = fontSize * 0.6 // Default ratio
+  
+  const family = fontFamily.toLowerCase()
+  if (family.includes('courier')) {
+    avgCharWidth = fontSize * 0.6 // Monospace font
+  } else if (family.includes('times')) {
+    avgCharWidth = fontSize * 0.5 // Times is narrower
+  } else {
+    avgCharWidth = fontSize * 0.55 // Helvetica/Arial
+  }
+  
   return text.length * avgCharWidth
 }
 
-// Additional utility function for validation
+// Improved text metrics calculation
+export function getTextMetrics(fontSize: number, fontFamily: string) {
+  // These are approximate values based on typical font metrics
+  const family = fontFamily.toLowerCase()
+  
+  let ascenderRatio = 0.8
+  let descenderRatio = 0.2
+  
+  if (family.includes('times')) {
+    ascenderRatio = 0.75
+    descenderRatio = 0.25
+  } else if (family.includes('courier')) {
+    ascenderRatio = 0.8
+    descenderRatio = 0.2
+  }
+  
+  const textHeight = fontSize * ascenderRatio
+  const descenderHeight = fontSize * descenderRatio
+  const totalHeight = fontSize
+  
+  return {
+    baselineOffset: descenderHeight,
+    textHeight,
+    totalHeight,
+    ascenderRatio,
+    descenderRatio,
+    // Y adjustment to position text correctly (distance from top to baseline)
+    yAdjustment: textHeight
+  }
+}
+
+// Enhanced validation function
 export function validateTextElement(element: any): element is TextElement {
-  return (
-    element &&
-    typeof element.id === 'string' &&
+  if (!element) return false
+  
+  const isValid = (
+    typeof element.id === 'string' && element.id.length > 0 &&
     typeof element.content === 'string' &&
-    typeof element.x === 'number' &&
-    typeof element.y === 'number' &&
-    typeof element.fontSize === 'number' &&
-    typeof element.fontFamily === 'string' &&
-    typeof element.color === 'string' &&
+    typeof element.x === 'number' && isFinite(element.x) && element.x >= 0 &&
+    typeof element.y === 'number' && isFinite(element.y) && element.y >= 0 &&
+    typeof element.fontSize === 'number' && isFinite(element.fontSize) && element.fontSize > 0 &&
+    typeof element.fontFamily === 'string' && element.fontFamily.length > 0 &&
+    typeof element.color === 'string' && element.color.length > 0 &&
     typeof element.bold === 'boolean' &&
     typeof element.italic === 'boolean' &&
     typeof element.underline === 'boolean' &&
-    typeof element.pageNumber === 'number' &&
-    element.pageNumber > 0
+    typeof element.pageNumber === 'number' && isFinite(element.pageNumber) && element.pageNumber > 0
   )
+  
+  if (!isValid) {
+    console.warn('Element validation failed:', element)
+  }
+  
+  return isValid
 }
+
+// Helper function to sanitize text content
+export function sanitizeTextContent(content: string): string {
+  if (typeof content !== 'string') return ''
+  
+  return content
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control characters
+    .trim()
+}
+
+// Export type for external use
+export type { TextElement }

@@ -44,6 +44,7 @@ export default function TextElement({
   const [isDragging, setIsDragging] = useState<boolean>(false)
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const [initialPosition, setInitialPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [dragTimeout, setDragTimeout] = useState<NodeJS.Timeout | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const elementRef = useRef<HTMLDivElement>(null)
 
@@ -65,18 +66,25 @@ export default function TextElement({
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (isEditing || isPreviewMode) return
     
-    e.preventDefault()
+    console.log('Mouse down', { isEditing, isPreviewMode })
+    
+    // Don't prevent default immediately - let double-click work first
     e.stopPropagation()
     
     // Store initial mouse position and element position
     setDragStart({ x: e.clientX, y: e.clientY })
     setInitialPosition({ x: element.x, y: element.y })
-    setIsDragging(true)
     onSelect(element.id)
     
-    // Add visual feedback
-    document.body.style.cursor = 'grabbing'
-    document.body.style.userSelect = 'none'
+    // Use a timeout to delay drag initiation - this allows double-click to work
+    const startDragTimeout = setTimeout(() => {
+      console.log('Starting drag after timeout')
+      setIsDragging(true)
+      document.body.style.cursor = 'grabbing'
+      document.body.style.userSelect = 'none'
+    }, 150) // 150ms delay before drag starts - longer delay for double-click
+    
+    setDragTimeout(startDragTimeout)
   }, [isEditing, isPreviewMode, element.id, element.x, element.y, onSelect])
 
   // Handle mouse move with improved positioning
@@ -123,6 +131,11 @@ export default function TextElement({
         document.body.style.userSelect = ''
         console.log('Drag ended')
       }
+      // Clear any pending drag timeout
+      if (dragTimeout) {
+        clearTimeout(dragTimeout)
+        setDragTimeout(null)
+      }
     }
   
     if (isDragging) {
@@ -136,7 +149,7 @@ export default function TextElement({
         document.body.style.userSelect = ''
       }
     }
-  }, [isDragging, isEditing, isPreviewMode, dragStart, initialPosition, scale, element.id, onUpdate, pageHeight, pageWidth])
+  }, [isDragging, isEditing, isPreviewMode, dragStart, initialPosition, scale, element.id, onUpdate, pageHeight, pageWidth, dragTimeout])
 
   // Handle click to select
   const handleClick = useCallback((e: React.MouseEvent) => {
@@ -152,49 +165,70 @@ export default function TextElement({
 
   // Handle double click to edit (only for non-predefined elements)
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-    if (isDragging || isPreviewMode || element.isPredefined) return
+    console.log('Double click triggered', { isPreviewMode, isPredefined: element.isPredefined })
+    
+    if (isPreviewMode || element.isPredefined) return
+    
+    // Cancel any pending drag operation
+    if (dragTimeout) {
+      clearTimeout(dragTimeout)
+      setDragTimeout(null)
+    }
+    setIsDragging(false)
+    
     e.preventDefault()
     e.stopPropagation()
+    
+    console.log('Setting editing to true')
     setIsEditing(true)
     setEditValue(element.content)
+    
     // Focus input after state update
     setTimeout(() => {
+      console.log('Focusing input', inputRef.current)
       inputRef.current?.focus()
       inputRef.current?.select()
-    }, 0)
-  }, [element.content, element.isPredefined, isDragging, isPreviewMode])
+    }, 10) // Slightly longer delay
+  }, [element.content, element.isPredefined, isPreviewMode, dragTimeout])
 
   // Handle edit save
   const handleEditSave = useCallback(() => {
+    console.log('Saving edit:', editValue)
     if (editValue.trim() && !element.isPredefined) {
       onUpdate(element.id, { content: editValue.trim() })
     }
     setIsEditing(false)
   }, [element.id, element.isPredefined, editValue, onUpdate])
 
-  // Handle edit cancel
-  const handleEditCancel = useCallback(() => {
-    setEditValue(element.content)
-    setIsEditing(false)
-  }, [element.content])
-
   // Handle key press in edit mode
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    e.stopPropagation()
-    if (e.key === 'Enter') {
+    console.log('Key pressed in input:', e.key)
+    
+    // Only stop propagation for specific keys, allow normal text input
+    if (e.key === 'Enter' || e.key === 'Escape') {
       e.preventDefault()
-      handleEditSave()
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      handleEditCancel()
+      e.stopPropagation()
+      handleEditSave() // Save on both Enter and Escape
     }
-  }, [handleEditSave, handleEditCancel])
+    // Don't stop propagation for other keys to allow normal input behavior
+  }, [handleEditSave])
 
-  // Handle arrow key adjustments for fine positioning
+  // Handle arrow key adjustments for fine positioning (only when NOT editing)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle arrow keys when this element is selected and not in edit mode
+      // CRITICAL: Only handle arrow keys when this element is selected AND not in edit mode AND not in preview mode
       if (!isSelected || isEditing || isPreviewMode) return
+
+      // Don't interfere if any input, textarea, or contenteditable element is focused
+      const activeElement = document.activeElement
+      if (activeElement?.tagName === 'INPUT' || 
+          activeElement?.tagName === 'TEXTAREA' || 
+          (activeElement as HTMLElement)?.isContentEditable) {
+        return
+      }
+
+      // Make sure this element is actually the focused element
+      if (activeElement !== elementRef.current) return
 
       const adjustment = 0.5 // 0.5 pixel adjustment
       let newX = element.x
@@ -203,19 +237,23 @@ export default function TextElement({
       switch (e.key) {
         case 'ArrowLeft':
           e.preventDefault()
+          e.stopPropagation()
           newX = Math.max(0, element.x - adjustment)
           break
         case 'ArrowRight':
           e.preventDefault()
-          newX = Math.min(pageWidth - 20, element.x + adjustment) // 20px padding from edge
+          e.stopPropagation()
+          newX = Math.min(pageWidth - 20, element.x + adjustment)
           break
         case 'ArrowUp':
           e.preventDefault()
+          e.stopPropagation()
           newY = Math.max(0, element.y - adjustment)
           break
         case 'ArrowDown':
           e.preventDefault()
-          newY = Math.min(pageHeight - 20, element.y + adjustment) // 20px padding from edge
+          e.stopPropagation()
+          newY = Math.min(pageHeight - 20, element.y + adjustment)
           break
         default:
           return
@@ -228,7 +266,7 @@ export default function TextElement({
       }
     }
 
-    // Add event listener when element is selected
+    // Only add event listener when element is selected, NOT editing, and NOT in preview mode
     if (isSelected && !isEditing && !isPreviewMode) {
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
@@ -321,15 +359,15 @@ export default function TextElement({
   return (
     <div
       ref={elementRef}
-      onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
-      onMouseDown={handleMouseDown}
+      onClick={isEditing ? undefined : handleClick}
+      onDoubleClick={isEditing ? undefined : handleDoubleClick}
+      onMouseDown={isEditing ? undefined : handleMouseDown}
       style={getElementStyle()}
       className="text-element"
-      tabIndex={isSelected && !isPreviewMode ? 0 : -1} // Make focusable when selected
+      tabIndex={isSelected && !isPreviewMode && !isEditing ? 0 : -1}
       title={
         element.isPredefined 
-          ? "Predefined text (cannot be edited) • Use arrow keys for fine positioning" 
+          ? "Predefined text (drag to move) • Use arrow keys for fine positioning" 
           : (isPreviewMode ? "" : "Double-click to edit, drag to move • Use arrow keys for fine positioning")
       }
     >
@@ -338,8 +376,10 @@ export default function TextElement({
           ref={inputRef}
           type="text"
           value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={handleEditSave}
+          onChange={(e) => {
+            console.log('Input change:', e.target.value)
+            setEditValue(e.target.value)
+          }}
           onKeyDown={handleKeyPress}
           className="bg-transparent outline-none border-none p-0 m-0"
           style={{
@@ -351,14 +391,20 @@ export default function TextElement({
             textDecoration: element.underline ? 'underline' : 'none',
             width: `${Math.max(editValue.length * 0.7, 3)}em`,
             minWidth: '30px',
-            background: 'none',
+            background: 'rgba(255, 255, 255, 0.9)',
+            border: '1px solid #3b82f6',
+            borderRadius: '2px',
+            padding: '2px 4px',
+            pointerEvents: 'auto',
           }}
           autoFocus
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         />
       ) : (
         <span>
           {element.content || 'Empty Text'}
-          {isSelected && !isPreviewMode && (
+          {isSelected && !isPreviewMode && !isEditing && (
             <div className="absolute -top-6 -left-1 text-xs text-gray-500 bg-white px-1 rounded shadow-sm border opacity-75">
               Use arrow keys for fine positioning (0.5px)
             </div>

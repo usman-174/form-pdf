@@ -84,7 +84,7 @@ export default function PredefinedTextPanel({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border p-4">
+    <div className="bg-white rounded-lg shadow-sm border p-4" data-predefined-panel>
       <h3 className="text-sm font-medium text-gray-900 mb-3">
         Predefined Text
       </h3>
@@ -101,7 +101,7 @@ export default function PredefinedTextPanel({
             onDragEnd={handleDragEnd}
             onClick={() => handleClick(text)}
             className={`
-              flex items-center p-3 border-2 rounded-lg cursor-move transition-all duration-200
+              predefined-text-item flex items-center p-3 border-2 rounded-lg cursor-move transition-all duration-200
               ${draggedText === text 
                 ? 'border-green-500 bg-green-50 shadow-md' 
                 : 'border-green-200 bg-green-50/50 hover:border-green-400 hover:bg-green-50'

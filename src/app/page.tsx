@@ -202,12 +202,28 @@ export default function Page() {
 
   // Add regular text element (for button click)
   const addTextElement = useCallback(async () => {
-    await addTextElementAtPosition(200, 100, 'New Text', false)
+    // Use coordinates that account for the TextElement styling offsets
+    // Add the same adjustments as the double-click handler for consistency
+    const scale = 1.2 // Match PDFViewer scale
+    const baseX = 200
+    const baseY = 100
+    const adjustedX = baseX + (8 / scale) // Account for horizontal margin offset
+    const adjustedY = baseY + (4 / scale) // Account for vertical margin offset
+    
+    await addTextElementAtPosition(adjustedX, adjustedY, 'New Text', false)
   }, [addTextElementAtPosition])
 
   // Add predefined text element
   const addPredefinedText = useCallback(async (text: string) => {
-    await addTextElementAtPosition(100, 100, text, true)
+    // Use coordinates that account for the TextElement styling offsets
+    // Add the same adjustments as the double-click handler for consistency
+    const scale = 1.2 // Match PDFViewer scale
+    const baseX = 100
+    const baseY = 100
+    const adjustedX = baseX + (8 / scale) // Account for horizontal margin offset
+    const adjustedY = baseY + (4 / scale) // Account for vertical margin offset
+    
+    await addTextElementAtPosition(adjustedX, adjustedY, text, true)
   }, [addTextElementAtPosition])
 
   // Handle predefined text drop with proper coordinate conversion
@@ -216,11 +232,10 @@ export default function Page() {
     
     console.log('Dropped predefined text:', text, 'at screen coordinates:', screenX, screenY)
     
-    // We need to convert screen coordinates to PDF coordinates
-    // This requires access to the PDF viewer's coordinate conversion function
-    // For now, we'll add at the drop position - the PDFViewer should handle this conversion
+    // Use the same coordinate conversion as the PDFViewer's double-click handler
+    // This ensures consistent positioning regardless of page height/dimensions
     try {
-      // Try to find the PDF page element to do coordinate conversion
+      // Find the PDF page element to do coordinate conversion
       const pdfPageElement = document.querySelector('.react-pdf__Page')
       if (pdfPageElement) {
         const pageRect = pdfPageElement.getBoundingClientRect()
@@ -230,11 +245,27 @@ export default function Page() {
         const relativeX = screenX - pageRect.left
         const relativeY = screenY - pageRect.top
         
-        // Convert to PDF coordinates
-        const pdfX = Math.max(0, relativeX / scale)
-        const pdfY = Math.max(0, relativeY / scale)
+        // Convert to PDF coordinates by dividing by scale
+        let pdfX = relativeX / scale
+        let pdfY = relativeY / scale
         
-        console.log('Converted coordinates:', { pdfX, pdfY, scale, pageRect })
+        // Apply the same adjustment as the double-click handler for consistent positioning
+        // Adjust coordinates to account for TextElement padding/margin offsets
+        pdfX = pdfX + (8 / scale) // Add back horizontal margin offset
+        pdfY = pdfY + (4 / scale) // Add back vertical margin offset
+        
+        // Ensure coordinates are within bounds
+        pdfX = Math.max(0, pdfX)
+        pdfY = Math.max(0, pdfY)
+        
+        console.log('Converted coordinates:', { 
+          pageRect, 
+          scale, 
+          relativeX, 
+          relativeY, 
+          finalPdfX: pdfX, 
+          finalPdfY: pdfY 
+        })
         
         // Add text at the calculated position
         await addTextElementAtPosition(pdfX, pdfY, text, true)
@@ -361,6 +392,39 @@ export default function Page() {
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [pdfData, handlePreview])
+
+  // Global click handler for deselecting elements when clicking away
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      // Don't deselect if clicking on a text element or if in preview mode
+      if (isPreviewMode) return
+
+      const target = e.target as HTMLElement
+      
+      // Check if clicked element is a text element or its child
+      const clickedTextElement = target.closest('.text-element')
+      
+      // Check if clicked on predefined text panel or its children
+      const clickedPredefinedPanel = target.closest('[data-predefined-panel]') || 
+                                     target.closest('.predefined-text-item')
+
+      // Check if clicked on controls panel or its children  
+      const clickedControls = target.closest('[data-controls-panel]') || 
+                             target.closest('button') || 
+                             target.closest('input') || 
+                             target.closest('select')
+
+      // Only deselect if not clicking on text elements, panels, or controls
+      if (!clickedTextElement && !clickedPredefinedPanel && !clickedControls) {
+        selectTextElement(null)
+        console.log('Deselected element due to click away')
+      }
+    }
+
+    // Add click listener to document
+    document.addEventListener('click', handleGlobalClick)
+    return () => document.removeEventListener('click', handleGlobalClick)
+  }, [isPreviewMode, selectTextElement])
 
   // Handle PDF download with better error handling
   const handleDownload = useCallback(async () => {

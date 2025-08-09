@@ -87,7 +87,7 @@ export default function Controls({
   }, [selectedElement, onDeleteElement])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-controls-panel>
       {/* Add Text Button - Only show in edit mode */}
       {!isPreviewMode && (
         <div className="bg-white rounded-lg shadow-sm border p-4">

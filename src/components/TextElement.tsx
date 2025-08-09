@@ -76,16 +76,38 @@ export default function TextElement({
     setInitialPosition({ x: element.x, y: element.y })
     onSelect(element.id)
     
-    // Use a timeout to delay drag initiation - this allows double-click to work
-    const startDragTimeout = setTimeout(() => {
-      console.log('Starting drag after timeout')
-      setIsDragging(true)
-      document.body.style.cursor = 'grabbing'
-      document.body.style.userSelect = 'none'
-    }, 150) // 150ms delay before drag starts - longer delay for double-click
+    // Start tracking mouse movement for drag detection
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = Math.abs(moveEvent.clientX - e.clientX)
+      const deltaY = Math.abs(moveEvent.clientY - e.clientY)
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+      
+      // Only start dragging if mouse moved more than 5 pixels
+      if (distance > 5 && !isDragging) {
+        setIsDragging(true)
+        document.body.style.cursor = 'grabbing'
+        document.body.style.userSelect = 'none'
+        console.log('Started dragging after mouse movement')
+      }
+    }
     
-    setDragTimeout(startDragTimeout)
-  }, [isEditing, isPreviewMode, element.id, element.x, element.y, onSelect])
+    const handleMouseUp = () => {
+      // Clean up event listeners
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      
+      // Clear drag timeout if it exists
+      if (dragTimeout) {
+        clearTimeout(dragTimeout)
+        setDragTimeout(null)
+      }
+    }
+    
+    // Add temporary listeners for drag detection
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    
+  }, [isEditing, isPreviewMode, element.id, element.x, element.y, onSelect, isDragging, dragTimeout])
 
   // Handle mouse move with improved positioning
   useEffect(() => {
@@ -155,7 +177,7 @@ export default function TextElement({
   const handleClick = useCallback((e: React.MouseEvent) => {
     if (isDragging || isPreviewMode) return
     e.preventDefault()
-    e.stopPropagation()
+    e.stopPropagation() // Prevent global click handler from deselecting
     onSelect(element.id)
     // Focus the element so it can receive keyboard events
     setTimeout(() => {
@@ -199,6 +221,30 @@ export default function TextElement({
     }
     setIsEditing(false)
   }, [element.id, element.isPredefined, editValue, onUpdate])
+
+  // Handle click away to save edits
+  useEffect(() => {
+    const handleClickAway = (e: MouseEvent) => {
+      // Only handle if this element is currently editing
+      if (!isEditing) return
+      
+      const target = e.target as HTMLElement
+      
+      // Don't save if clicking within this element or its input
+      if (elementRef.current?.contains(target) || inputRef.current?.contains(target)) {
+        return
+      }
+      
+      console.log('Click away detected, saving edit')
+      handleEditSave()
+    }
+    
+    if (isEditing) {
+      // Use capture phase to ensure we get the event before others
+      document.addEventListener('mousedown', handleClickAway, true)
+      return () => document.removeEventListener('mousedown', handleClickAway, true)
+    }
+  }, [isEditing, handleEditSave])
 
   // Handle key press in edit mode
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
@@ -321,9 +367,24 @@ export default function TextElement({
       }
     }
 
-    // Simple interactive styling
+    if (isEditing) {
+      // Edit mode: minimal styling to avoid interfering with input
+      return {
+        ...baseStyle,
+        backgroundColor: 'transparent',
+        border: 'none',
+        cursor: 'text',
+        padding: '0',
+        margin: '0',
+        borderRadius: '6px',
+        // Add subtle background glow for edit mode
+        boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.08)',
+      }
+    }
+
+    // Simple interactive styling for non-editing mode
     const interactiveStyle = {
-      cursor: isEditing ? 'text' : (isDragging ? 'grabbing' : 'grab'),
+      cursor: isDragging ? 'grabbing' : 'grab',
       borderRadius: '6px',
       padding: '4px 8px',
       margin: '-4px -8px', // Offset padding for precise positioning
@@ -389,13 +450,14 @@ export default function TextElement({
             fontWeight: element.bold ? 'bold' : 'normal',
             fontStyle: element.italic ? 'italic' : 'normal',
             textDecoration: element.underline ? 'underline' : 'none',
-            width: `${Math.max(editValue.length * 0.7, 3)}em`,
-            minWidth: '30px',
-            background: 'rgba(255, 255, 255, 0.9)',
-            border: '1px solid #3b82f6',
-            borderRadius: '2px',
-            padding: '2px 4px',
+            width: `${Math.max(editValue.length * 0.8, 4)}em`,
+            minWidth: '50px',
+            background: 'rgba(255, 255, 255, 0.95)',
+            border: '2px solid #3b82f6',
+            borderRadius: '4px',
+            padding: '4px 6px',
             pointerEvents: 'auto',
+            boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(0, 0, 0, 0.15)',
           }}
           autoFocus
           onMouseDown={(e) => e.stopPropagation()}

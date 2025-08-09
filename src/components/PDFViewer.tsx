@@ -309,11 +309,19 @@ export default function PDFViewer({
 
     // Use clientX/clientY for screen coordinates
     const { x, y } = screenToPdfCoordinates(e.clientX, e.clientY)
+    
+    // Adjust coordinates to account for TextElement padding/margin offsets
+    // TextElement has padding '4px 8px' and margin '-4px -8px' for visual offset
+    // We need to add back the margin offset to position the top-left corner exactly at click
+    const adjustedX = x + (8 / scale) // Add back horizontal margin offset
+    const adjustedY = y + (4 / scale) // Add back vertical margin offset
+    
     console.log('Double click - Screen coords:', { screenX: e.clientX, screenY: e.clientY })
     console.log('Double click - PDF coords:', { x, y })
+    console.log('Double click - Adjusted coords:', { x: adjustedX, y: adjustedY })
     
-    onAddTextAtPosition(x, y)
-  }, [screenToPdfCoordinates, onAddTextAtPosition, isPreviewMode])
+    onAddTextAtPosition(adjustedX, adjustedY)
+  }, [screenToPdfCoordinates, onAddTextAtPosition, isPreviewMode, scale])
 
   // Handle clicks on the PDF container (not on text elements)
   const handleContainerClick = useCallback((e: React.MouseEvent) => {

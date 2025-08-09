@@ -54,6 +54,13 @@ export default function TextElement({
     }
   }, [element.content, isEditing])
 
+  // Focus element when it becomes selected
+  useEffect(() => {
+    if (isSelected && !isEditing && !isPreviewMode) {
+      elementRef.current?.focus()
+    }
+  }, [isSelected, isEditing, isPreviewMode])
+
   // Improved drag implementation
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (isEditing || isPreviewMode) return
@@ -137,6 +144,10 @@ export default function TextElement({
     e.preventDefault()
     e.stopPropagation()
     onSelect(element.id)
+    // Focus the element so it can receive keyboard events
+    setTimeout(() => {
+      elementRef.current?.focus()
+    }, 0)
   }, [element.id, onSelect, isDragging, isPreviewMode])
 
   // Handle double click to edit (only for non-predefined elements)
@@ -179,6 +190,51 @@ export default function TextElement({
     }
   }, [handleEditSave, handleEditCancel])
 
+  // Handle arrow key adjustments for fine positioning
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle arrow keys when this element is selected and not in edit mode
+      if (!isSelected || isEditing || isPreviewMode) return
+
+      const adjustment = 0.5 // 0.5 pixel adjustment
+      let newX = element.x
+      let newY = element.y
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault()
+          newX = Math.max(0, element.x - adjustment)
+          break
+        case 'ArrowRight':
+          e.preventDefault()
+          newX = Math.min(pageWidth - 20, element.x + adjustment) // 20px padding from edge
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          newY = Math.max(0, element.y - adjustment)
+          break
+        case 'ArrowDown':
+          e.preventDefault()
+          newY = Math.min(pageHeight - 20, element.y + adjustment) // 20px padding from edge
+          break
+        default:
+          return
+      }
+
+      // Only update if position actually changed
+      if (newX !== element.x || newY !== element.y) {
+        onUpdate(element.id, { x: newX, y: newY })
+        console.log(`Fine-tuned position: ${e.key} - new position:`, { x: newX, y: newY })
+      }
+    }
+
+    // Add event listener when element is selected
+    if (isSelected && !isEditing && !isPreviewMode) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isSelected, isEditing, isPreviewMode, element.id, element.x, element.y, pageWidth, pageHeight, onUpdate])
+
   // Calculate font styles
   const getFontStyle = useCallback(() => {
     let fontWeight = 'normal'
@@ -213,6 +269,7 @@ export default function TextElement({
       position: 'relative' as const,
       display: 'inline-block',
       zIndex: isSelected ? 1001 : 1000,
+      outline: 'none', // Remove default focus outline
     }
 
     if (isPreviewMode) {
@@ -234,7 +291,7 @@ export default function TextElement({
       margin: '-4px -8px', // Offset padding for precise positioning
       transition: isDragging ? 'none' : 'all 0.15s ease',
       boxShadow: isSelected 
-        ? '0 4px 12px rgba(0, 0, 0, 0.15)'
+        ? '0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 2px rgba(59, 130, 246, 0.3)'
         : '0 2px 4px rgba(0, 0, 0, 0.1)',
     }
 
@@ -246,6 +303,9 @@ export default function TextElement({
         backgroundColor: isSelected ? 'rgba(34, 197, 94, 0.12)' : 'rgba(34, 197, 94, 0.06)',
         border: isSelected ? '2px solid rgb(34, 197, 94)' : '1px solid rgba(34, 197, 94, 0.4)',
         cursor: isDragging ? 'grabbing' : 'grab',
+        boxShadow: isSelected 
+          ? '0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 2px rgba(34, 197, 94, 0.3)'
+          : '0 2px 4px rgba(0, 0, 0, 0.1)',
       }
     }
 
@@ -266,10 +326,11 @@ export default function TextElement({
       onMouseDown={handleMouseDown}
       style={getElementStyle()}
       className="text-element"
+      tabIndex={isSelected && !isPreviewMode ? 0 : -1} // Make focusable when selected
       title={
         element.isPredefined 
-          ? "Predefined text (cannot be edited)" 
-          : (isPreviewMode ? "" : "Double-click to edit, drag to move")
+          ? "Predefined text (cannot be edited) • Use arrow keys for fine positioning" 
+          : (isPreviewMode ? "" : "Double-click to edit, drag to move • Use arrow keys for fine positioning")
       }
     >
       {isEditing && !element.isPredefined ? (
@@ -297,6 +358,11 @@ export default function TextElement({
       ) : (
         <span>
           {element.content || 'Empty Text'}
+          {isSelected && !isPreviewMode && (
+            <div className="absolute -top-6 -left-1 text-xs text-gray-500 bg-white px-1 rounded shadow-sm border opacity-75">
+              Use arrow keys for fine positioning (0.5px)
+            </div>
+          )}
         </span>
       )}
     </div>

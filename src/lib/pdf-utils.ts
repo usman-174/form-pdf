@@ -115,7 +115,7 @@ async function generatePDFWithText(
         // Applying compensation offsets based on this fixed zoom
         
         // Manual offset values - fine-tuned for 120% zoom:
-        const xOffset = 1      // Compensate for -1 X offset (move right by 1)
+        const xOffset = -0.4     // Compensate for -1 X offset (move right by 1)
         const yOffset = -4     // Compensate for +4 Y offset (move up by 4)  
         const baselineMultiplier = 0.85  // Adjusted for 120% zoom scaling
         const minMargin = 0    // Minimum distance from PDF edges

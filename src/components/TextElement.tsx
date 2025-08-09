@@ -16,6 +16,20 @@ interface TextElement {
   underline: boolean
   pageNumber: number
   isPredefined?: boolean
+  // Advanced formatting properties
+  letterSpacing?: number
+  wordSpacing?: number
+  lineHeight?: number
+  textAlign?: 'left' | 'center' | 'right' | 'justify'
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize'
+  textDecoration?: 'none' | 'underline' | 'overline' | 'line-through'
+  fontWeight?: number
+  fontStyle?: 'normal' | 'italic' | 'oblique'
+  textShadow?: string
+  backgroundColor?: string
+  borderRadius?: number
+  padding?: number
+  opacity?: number
 }
 
 interface TextElementProps {
@@ -321,13 +335,9 @@ export default function TextElement({
 
   // Calculate font styles
   const getFontStyle = useCallback(() => {
-    let fontWeight = 'normal'
-    let fontStyle = 'normal'
-    let textDecoration = 'none'
-
-    if (element.bold) fontWeight = 'bold'
-    if (element.italic) fontStyle = 'italic'
-    if (element.underline) textDecoration = 'underline'
+    const fontWeight = element.fontWeight || (element.bold ? 'bold' : 'normal')
+    const fontStyle = element.fontStyle || (element.italic ? 'italic' : 'normal')
+    const textDecoration = element.textDecoration || (element.underline ? 'underline' : 'none')
 
     return {
       fontFamily: element.fontFamily,
@@ -336,10 +346,17 @@ export default function TextElement({
       fontWeight,
       fontStyle,
       textDecoration,
-      lineHeight: 1.2,
+      letterSpacing: element.letterSpacing ? `${element.letterSpacing * scale}px` : 'normal',
+      wordSpacing: element.wordSpacing ? `${element.wordSpacing * scale}px` : 'normal',
+      lineHeight: element.lineHeight || 1.2,
+      textAlign: element.textAlign || 'left',
+      textTransform: element.textTransform || 'none',
+      textShadow: element.textShadow || 'none',
+      backgroundColor: element.backgroundColor || 'transparent',
+      borderRadius: element.borderRadius ? `${element.borderRadius * scale}px` : '3px',
+      padding: element.padding ? `${element.padding * scale}px` : '2px 4px',
+      opacity: element.opacity !== undefined ? element.opacity : 1,
       margin: 0,
-      padding: '2px 4px',
-      borderRadius: '3px',
       minWidth: '30px',
       minHeight: '20px',
       whiteSpace: 'nowrap' as const,
@@ -428,8 +445,8 @@ export default function TextElement({
       tabIndex={isSelected && !isPreviewMode && !isEditing ? 0 : -1}
       title={
         element.isPredefined 
-          ? "Predefined text (drag to move) • Use arrow keys for fine positioning" 
-          : (isPreviewMode ? "" : "Double-click to edit, drag to move • Use arrow keys for fine positioning")
+          ? "Predefined text (drag to move)" 
+          : (isPreviewMode ? "" : "Double-click to edit, drag to move")
       }
     >
       {isEditing && !element.isPredefined ? (
@@ -466,11 +483,6 @@ export default function TextElement({
       ) : (
         <span>
           {element.content || 'Empty Text'}
-          {isSelected && !isPreviewMode && !isEditing && (
-            <div className="absolute -top-6 -left-1 text-xs text-gray-500 bg-white px-1 rounded shadow-sm border opacity-75">
-              Use arrow keys for fine positioning (0.5px)
-            </div>
-          )}
         </span>
       )}
     </div>

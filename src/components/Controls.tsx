@@ -86,6 +86,43 @@ export default function Controls({
     }
   }, [selectedElement, onDeleteElement])
 
+  // Handle advanced formatting
+  const handleLetterSpacingChange = useCallback((value: number) => {
+    if (selectedElement) {
+      onUpdateElement(selectedElement.id, { letterSpacing: value })
+    }
+  }, [selectedElement, onUpdateElement])
+
+  const handleWordSpacingChange = useCallback((value: number) => {
+    if (selectedElement) {
+      onUpdateElement(selectedElement.id, { wordSpacing: value })
+    }
+  }, [selectedElement, onUpdateElement])
+
+  const handleLineHeightChange = useCallback((value: number) => {
+    if (selectedElement) {
+      onUpdateElement(selectedElement.id, { lineHeight: value })
+    }
+  }, [selectedElement, onUpdateElement])
+
+  const handleTextAlignChange = useCallback((value: 'left' | 'center' | 'right' | 'justify') => {
+    if (selectedElement) {
+      onUpdateElement(selectedElement.id, { textAlign: value })
+    }
+  }, [selectedElement, onUpdateElement])
+
+  const handleTextTransformChange = useCallback((value: 'none' | 'uppercase' | 'lowercase' | 'capitalize') => {
+    if (selectedElement) {
+      onUpdateElement(selectedElement.id, { textTransform: value })
+    }
+  }, [selectedElement, onUpdateElement])
+
+  const handleFontWeightChange = useCallback((value: number) => {
+    if (selectedElement) {
+      onUpdateElement(selectedElement.id, { fontWeight: value })
+    }
+  }, [selectedElement, onUpdateElement])
+
   return (
     <div className="space-y-6" data-controls-panel>
       {/* Add Text Button - Only show in edit mode */}
@@ -221,6 +258,141 @@ export default function Controls({
                 className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm text-gray-900 bg-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="#000000"
               />
+            </div>
+          </div>
+
+          {/* Advanced Typography */}
+          <div className="space-y-4 border-t pt-4">
+            <h4 className="text-sm font-medium text-gray-700">Advanced Typography</h4>
+            
+            {/* Letter Spacing */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Letter Spacing
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="range"
+                  min="-2"
+                  max="10"
+                  step="0.1"
+                  value={selectedElement.letterSpacing || 0}
+                  onChange={(e) => handleLetterSpacingChange(Number(e.target.value))}
+                  className="flex-1"
+                />
+                <span className="text-xs text-gray-500 w-12 text-right">
+                  {(selectedElement.letterSpacing || 0).toFixed(1)}px
+                </span>
+              </div>
+            </div>
+
+            {/* Word Spacing */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Word Spacing
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="range"
+                  min="-5"
+                  max="20"
+                  step="0.1"
+                  value={selectedElement.wordSpacing || 0}
+                  onChange={(e) => handleWordSpacingChange(Number(e.target.value))}
+                  className="flex-1"
+                />
+                <span className="text-xs text-gray-500 w-12 text-right">
+                  {(selectedElement.wordSpacing || 0).toFixed(1)}px
+                </span>
+              </div>
+            </div>
+
+            {/* Line Height */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Line Height
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="range"
+                  min="0.8"
+                  max="3"
+                  step="0.1"
+                  value={selectedElement.lineHeight || 1.2}
+                  onChange={(e) => handleLineHeightChange(Number(e.target.value))}
+                  className="flex-1"
+                />
+                <span className="text-xs text-gray-500 w-12 text-right">
+                  {(selectedElement.lineHeight || 1.2).toFixed(1)}
+                </span>
+              </div>
+            </div>
+
+            {/* Text Alignment */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Text Alignment
+              </label>
+              <div className="flex space-x-1">
+                {[
+                  { value: 'left', icon: 'L', title: 'Left' },
+                  { value: 'center', icon: 'C', title: 'Center' },
+                  { value: 'right', icon: 'R', title: 'Right' },
+                  { value: 'justify', icon: 'J', title: 'Justify' }
+                ].map((align) => (
+                  <button
+                    key={align.value}
+                    onClick={() => handleTextAlignChange(align.value as 'left' | 'center' | 'right' | 'justify')}
+                    className={`px-3 py-2 rounded border text-sm transition-colors ${
+                      (selectedElement.textAlign || 'left') === align.value
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-900 border-gray-300 hover:bg-gray-50'
+                    }`}
+                    title={align.title}
+                  >
+                    {align.icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Text Transform */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Text Transform
+              </label>
+              <select
+                value={selectedElement.textTransform || 'none'}
+                onChange={(e) => handleTextTransformChange(e.target.value as 'none' | 'uppercase' | 'lowercase' | 'capitalize')}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="none">None</option>
+                <option value="uppercase">UPPERCASE</option>
+                <option value="lowercase">lowercase</option>
+                <option value="capitalize">Capitalize</option>
+              </select>
+            </div>
+
+            {/* Font Weight */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Font Weight
+              </label>
+              <select
+                value={selectedElement.fontWeight || (selectedElement.bold ? 700 : 400)}
+                onChange={(e) => handleFontWeightChange(Number(e.target.value))}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value={100}>100 - Thin</option>
+                <option value={200}>200 - Extra Light</option>
+                <option value={300}>300 - Light</option>
+                <option value={400}>400 - Normal</option>
+                <option value={500}>500 - Medium</option>
+                <option value={600}>600 - Semi Bold</option>
+                <option value={700}>700 - Bold</option>
+                <option value={800}>800 - Extra Bold</option>
+                <option value={900}>900 - Black</option>
+              </select>
             </div>
           </div>
 

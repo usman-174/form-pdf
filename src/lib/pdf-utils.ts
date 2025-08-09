@@ -15,32 +15,50 @@ export interface TextElement {
   underline: boolean
   pageNumber: number
   isPredefined?: boolean
+  // Advanced formatting properties
+  letterSpacing?: number // Letter spacing in pixels
+  wordSpacing?: number // Word spacing in pixels
+  lineHeight?: number // Line height multiplier (1.0 = normal, 1.5 = 1.5x spacing)
+  textAlign?: 'left' | 'center' | 'right' | 'justify' // Text alignment
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize' // Text case transformation
+  textDecoration?: 'none' | 'underline' | 'overline' | 'line-through' // Text decoration
+  fontWeight?: number // Font weight (100-900)
+  fontStyle?: 'normal' | 'italic' | 'oblique' // Font style
+  textShadow?: string // Text shadow CSS value
+  backgroundColor?: string // Background color for text
+  borderRadius?: number // Border radius for background
+  padding?: number // Internal padding
+  opacity?: number // Text opacity (0-1)
 }
 
 // Font mapping for pdf-lib with better font handling
-const getFontForFamily = async (pdfDoc: PDFDocument, fontFamily: string, isBold: boolean = false, isItalic: boolean = false) => {
+const getFontForFamily = async (pdfDoc: PDFDocument, fontFamily: string, isBold: boolean = false, isItalic: boolean = false, fontWeight?: number, fontStyle?: string) => {
   const family = fontFamily.toLowerCase()
+  
+  // Determine if bold/italic from fontWeight and fontStyle if provided
+  const determinedBold = fontWeight ? fontWeight >= 600 : isBold
+  const determinedItalic = fontStyle ? fontStyle === 'italic' || fontStyle === 'oblique' : isItalic
   
   try {
     // Handle font variations
     if (family.includes('times') || family.includes('roman')) {
-      if (isBold && isItalic) return await pdfDoc.embedFont(StandardFonts.TimesRomanBoldItalic)
-      if (isBold) return await pdfDoc.embedFont(StandardFonts.TimesRomanBold)
-      if (isItalic) return await pdfDoc.embedFont(StandardFonts.TimesRomanItalic)
+      if (determinedBold && determinedItalic) return await pdfDoc.embedFont(StandardFonts.TimesRomanBoldItalic)
+      if (determinedBold) return await pdfDoc.embedFont(StandardFonts.TimesRomanBold)
+      if (determinedItalic) return await pdfDoc.embedFont(StandardFonts.TimesRomanItalic)
       return await pdfDoc.embedFont(StandardFonts.TimesRoman)
     }
     
     if (family.includes('courier')) {
-      if (isBold && isItalic) return await pdfDoc.embedFont(StandardFonts.CourierBoldOblique)
-      if (isBold) return await pdfDoc.embedFont(StandardFonts.CourierBold)
-      if (isItalic) return await pdfDoc.embedFont(StandardFonts.CourierOblique)
+      if (determinedBold && determinedItalic) return await pdfDoc.embedFont(StandardFonts.CourierBoldOblique)
+      if (determinedBold) return await pdfDoc.embedFont(StandardFonts.CourierBold)
+      if (determinedItalic) return await pdfDoc.embedFont(StandardFonts.CourierOblique)
       return await pdfDoc.embedFont(StandardFonts.Courier)
     }
     
     // Default to Helvetica
-    if (isBold && isItalic) return await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique)
-    if (isBold) return await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-    if (isItalic) return await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
+    if (determinedBold && determinedItalic) return await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique)
+    if (determinedBold) return await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+    if (determinedItalic) return await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
     return await pdfDoc.embedFont(StandardFonts.Helvetica)
     
   } catch (error) {
@@ -108,14 +126,14 @@ async function generatePDFWithText(
         }
 
         // Get the appropriate font
-        const font = await getFontForFamily(pdfDoc, element.fontFamily, element.bold, element.italic)
+        const font = await getFontForFamily(pdfDoc, element.fontFamily, element.bold, element.italic, element.fontWeight, element.fontStyle)
 
         // COORDINATE SYSTEM FIX for fixed 120% zoom:
         // The application now uses a fixed 1.2 (120%) zoom level
         // Applying compensation offsets based on this fixed zoom
         
         // Manual offset values - fine-tuned for 120% zoom:
-        const xOffset = -0.4     // Compensate for -1 X offset (move right by 1)
+        const xOffset = -0.1     // Compensate for -1 X offset (move right by 1)
         const yOffset = -4     // Compensate for +4 Y offset (move up by 4)  
         const baselineMultiplier = 0.85  // Adjusted for 120% zoom scaling
         const minMargin = 0    // Minimum distance from PDF edges
@@ -150,28 +168,116 @@ async function generatePDFWithText(
         // Convert hex color to RGB
         const color = hexToRgb(element.color)
         
-        // Create text options
-        const textOptions: any = {
+        // Apply text transformations
+        let processedContent = element.content
+        if (element.textTransform) {
+          switch (element.textTransform) {
+            case 'uppercase':
+              processedContent = processedContent.toUpperCase()
+              break
+            case 'lowercase':
+              processedContent = processedContent.toLowerCase()
+              break
+            case 'capitalize':
+              processedContent = processedContent.split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                .join(' ')
+              break
+          }
+        }
+        
+        // Handle opacity
+        const opacity = element.opacity !== undefined ? element.opacity : 1
+        
+        // Create text options with advanced formatting
+        const textOptions = {
           x,
           y,
           size: element.fontSize,
           font,
           color: rgb(color.r / 255, color.g / 255, color.b / 255),
+          opacity,
         }
 
-        // Draw the text
-        page.drawText(element.content, textOptions)
-        
-        // Handle underline if needed (pdf-lib doesn't support text decoration directly)
-        if (element.underline) {
-          const textWidth = estimateTextWidth(element.content, element.fontSize, element.fontFamily)
-          const underlineY = y - 2 // Position underline slightly below baseline
+        // Handle letter spacing and word spacing by drawing characters/words individually
+        if ((element.letterSpacing && element.letterSpacing !== 0) || (element.wordSpacing && element.wordSpacing !== 0)) {
+          const letterSpacing = element.letterSpacing || 0
+          const wordSpacing = element.wordSpacing || 0
           
+          let currentX = x
+          const words = processedContent.split(' ')
+          
+          for (let wordIndex = 0; wordIndex < words.length; wordIndex++) {
+            const word = words[wordIndex]
+            
+            // Handle letter spacing within words
+            if (letterSpacing !== 0) {
+              for (let charIndex = 0; charIndex < word.length; charIndex++) {
+                const char = word[charIndex]
+                page.drawText(char, {
+                  ...textOptions,
+                  x: currentX,
+                })
+                
+                // Move to next character position
+                const charWidth = estimateCharWidth(char, element.fontSize, element.fontFamily)
+                currentX += charWidth + letterSpacing
+              }
+            } else {
+              // Draw whole word
+              page.drawText(word, {
+                ...textOptions,
+                x: currentX,
+              })
+              
+              // Move to end of word
+              const wordWidth = estimateTextWidth(word, element.fontSize, element.fontFamily)
+              currentX += wordWidth
+            }
+            
+            // Add space between words (if not the last word)
+            if (wordIndex < words.length - 1) {
+              const spaceWidth = estimateCharWidth(' ', element.fontSize, element.fontFamily)
+              currentX += spaceWidth + wordSpacing
+            }
+          }
+        } else {
+          // Draw text normally without spacing adjustments
+          page.drawText(processedContent, textOptions)
+        }
+        
+        // Handle text decorations
+        const textWidth = estimateTextWidth(processedContent, element.fontSize, element.fontFamily)
+        
+        // Determine which decoration to apply (priority: textDecoration over legacy underline)
+        const decoration = element.textDecoration || (element.underline ? 'underline' : 'none')
+        
+        if (decoration === 'underline') {
+          const underlineY = y - 2
           page.drawLine({
             start: { x, y: underlineY },
             end: { x: x + textWidth, y: underlineY },
             thickness: 1,
             color: rgb(color.r / 255, color.g / 255, color.b / 255),
+            opacity,
+          })
+        } else if (decoration === 'line-through') {
+          const strikethroughY = y + (element.fontSize * 0.3)
+          page.drawLine({
+            start: { x, y: strikethroughY },
+            end: { x: x + textWidth, y: strikethroughY },
+            thickness: 1,
+            color: rgb(color.r / 255, color.g / 255, color.b / 255),
+            opacity,
+          })
+        } else if (decoration === 'overline') {
+          const overlineY = y + element.fontSize
+          page.drawLine({
+            start: { x, y: overlineY },
+            end: { x: x + textWidth, y: overlineY },
+            thickness: 1,
+            color: rgb(color.r / 255, color.g / 255, color.b / 255),
+            opacity,
           })
         }
         
@@ -321,6 +427,34 @@ export function estimateTextWidth(text: string, fontSize: number, fontFamily: st
   return text.length * avgCharWidth
 }
 
+// Utility function for single character width estimation
+export function estimateCharWidth(char: string, fontSize: number, fontFamily: string): number {
+  const family = fontFamily.toLowerCase()
+  let charWidthRatio = 0.55 // Default ratio for Helvetica/Arial
+  
+  if (family.includes('courier')) {
+    charWidthRatio = 0.6 // Monospace font - all chars same width
+  } else if (family.includes('times')) {
+    charWidthRatio = 0.5 // Times is narrower
+    
+    // Adjust for specific characters in Times
+    if (char === 'i' || char === 'l' || char === 't' || char === 'f') {
+      charWidthRatio = 0.3 // Narrow characters
+    } else if (char === 'm' || char === 'w' || char === 'M' || char === 'W') {
+      charWidthRatio = 0.8 // Wide characters
+    }
+  } else {
+    // Helvetica/Arial character width adjustments
+    if (char === 'i' || char === 'l' || char === 't' || char === 'f') {
+      charWidthRatio = 0.3 // Narrow characters
+    } else if (char === 'm' || char === 'w' || char === 'M' || char === 'W') {
+      charWidthRatio = 0.7 // Wide characters
+    }
+  }
+  
+  return fontSize * charWidthRatio
+}
+
 // Improved text metrics calculation
 export function getTextMetrics(fontSize: number, fontFamily: string) {
   // These are approximate values based on typical font metrics
@@ -353,21 +487,23 @@ export function getTextMetrics(fontSize: number, fontFamily: string) {
 }
 
 // Enhanced validation function
-export function validateTextElement(element: any): element is TextElement {
-  if (!element) return false
+export function validateTextElement(element: unknown): element is TextElement {
+  if (!element || typeof element !== 'object') return false
   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const el = element as any
   const isValid = (
-    typeof element.id === 'string' && element.id.length > 0 &&
-    typeof element.content === 'string' &&
-    typeof element.x === 'number' && isFinite(element.x) && element.x >= 0 &&
-    typeof element.y === 'number' && isFinite(element.y) && element.y >= 0 &&
-    typeof element.fontSize === 'number' && isFinite(element.fontSize) && element.fontSize > 0 &&
-    typeof element.fontFamily === 'string' && element.fontFamily.length > 0 &&
-    typeof element.color === 'string' && element.color.length > 0 &&
-    typeof element.bold === 'boolean' &&
-    typeof element.italic === 'boolean' &&
-    typeof element.underline === 'boolean' &&
-    typeof element.pageNumber === 'number' && isFinite(element.pageNumber) && element.pageNumber > 0
+    typeof el.id === 'string' && el.id.length > 0 &&
+    typeof el.content === 'string' &&
+    typeof el.x === 'number' && isFinite(el.x) && el.x >= 0 &&
+    typeof el.y === 'number' && isFinite(el.y) && el.y >= 0 &&
+    typeof el.fontSize === 'number' && isFinite(el.fontSize) && el.fontSize > 0 &&
+    typeof el.fontFamily === 'string' && el.fontFamily.length > 0 &&
+    typeof el.color === 'string' && el.color.length > 0 &&
+    typeof el.bold === 'boolean' &&
+    typeof el.italic === 'boolean' &&
+    typeof el.underline === 'boolean' &&
+    typeof el.pageNumber === 'number' && isFinite(el.pageNumber) && el.pageNumber > 0
   )
   
   if (!isValid) {

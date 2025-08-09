@@ -33,6 +33,20 @@ export interface TextElement {
   underline: boolean
   pageNumber: number
   isPredefined?: boolean
+  // Advanced formatting properties
+  letterSpacing?: number // Letter spacing in pixels
+  wordSpacing?: number // Word spacing in pixels
+  lineHeight?: number // Line height multiplier (1.0 = normal, 1.5 = 1.5x spacing)
+  textAlign?: 'left' | 'center' | 'right' | 'justify' // Text alignment
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize' // Text case transformation
+  textDecoration?: 'none' | 'underline' | 'overline' | 'line-through' // Text decoration
+  fontWeight?: number // Font weight (100-900)
+  fontStyle?: 'normal' | 'italic' | 'oblique' // Font style
+  textShadow?: string // Text shadow CSS value
+  backgroundColor?: string // Background color for text
+  borderRadius?: number // Border radius for background
+  padding?: number // Internal padding
+  opacity?: number // Text opacity (0-1)
 }
 
 // Drop zone component for handling predefined text drops
@@ -170,7 +184,21 @@ export default function Page() {
         italic: false,
         underline: false,
         pageNumber: currentPage,
-        isPredefined
+        isPredefined,
+        // Advanced formatting defaults
+        letterSpacing: 0,
+        wordSpacing: 0,
+        lineHeight: 1.2,
+        textAlign: 'left',
+        textTransform: 'none',
+        textDecoration: 'none',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textShadow: 'none',
+        backgroundColor: 'transparent',
+        borderRadius: 0,
+        padding: 0,
+        opacity: 1,
       }
       
       setTextElements(prev => [...prev, newElement])
@@ -192,7 +220,21 @@ export default function Page() {
         italic: false,
         underline: false,
         pageNumber: currentPage,
-        isPredefined
+        isPredefined,
+        // Advanced formatting defaults
+        letterSpacing: 0,
+        wordSpacing: 0,
+        lineHeight: 1.2,
+        textAlign: 'left',
+        textTransform: 'none',
+        textDecoration: 'none',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textShadow: 'none',
+        backgroundColor: 'transparent',
+        borderRadius: 0,
+        padding: 0,
+        opacity: 1,
       }
       
       setTextElements(prev => [...prev, newElement])

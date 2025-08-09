@@ -51,7 +51,6 @@ const getFontForFamily = async (pdfDoc: PDFDocument, fontFamily: string, isBold:
 
 // Core function to generate PDF with text elements
 async function generatePDFWithText(
-<<<<<<< HEAD
   pdfData: ArrayBuffer,
   elements: TextElement[]
 ): Promise<PDFDocument> {
@@ -91,7 +90,11 @@ async function generatePDFWithText(
     const page = pdfDoc.getPage(pageIndex)
     const { width, height } = page.getSize()
     
-    console.log(`Processing page ${pageNumber} with dimensions:`, { width, height })
+    console.log(`=== PDF GENERATION PAGE DIMENSIONS ===`)
+    console.log(`Processing page ${pageNumber}`)
+    console.log('Method: page.getSize() - PDF generation')
+    console.log('Dimensions:', { width, height })
+    console.log('========================================')
 
     // Process elements on this page
     for (const element of pageElements) {
@@ -107,13 +110,25 @@ async function generatePDFWithText(
         // Get the appropriate font
         const font = await getFontForFamily(pdfDoc, element.fontFamily, element.bold, element.italic)
 
-        // FIXED: Calculate position correctly
-        // The element.x and element.y are in PDF coordinate space (origin at top-left)
-        // PDF coordinate system has origin at bottom-left, so we need to convert
-        const x = Math.max(0, element.x)
-        // Convert Y coordinate: PDF origin is bottom-left, viewer origin is top-left
-        // We need to flip the Y coordinate and account for text positioning
-        const y = Math.max(0, height - element.y - (element.fontSize * 0.75))
+        // COORDINATE SYSTEM FIX for fixed 120% zoom:
+        // The application now uses a fixed 1.2 (120%) zoom level
+        // Applying compensation offsets based on this fixed zoom
+        
+        // Manual offset values - fine-tuned for 120% zoom:
+        const xOffset = 1      // Compensate for -1 X offset (move right by 1)
+        const yOffset = -4     // Compensate for +4 Y offset (move up by 4)  
+        const baselineMultiplier = 0.85  // Adjusted for 120% zoom scaling
+        const minMargin = 0    // Minimum distance from PDF edges
+        
+        // Use coordinates directly (they're already scale-independent)
+        const x = Math.max(minMargin, element.x + xOffset)
+        
+        // CRITICAL Y-COORDINATE FIX:
+        // PDF coordinate system: origin at bottom-left, Y increases upward
+        // Viewer coordinate system: origin at top-left, Y increases downward  
+        // element.y is stored as viewer coordinates (top-left origin)
+        // We need to convert to PDF coordinates (bottom-left origin)
+        const y = Math.max(minMargin, height - element.y - (element.fontSize * baselineMultiplier) + yOffset)
 
         console.log('Drawing text at position:', { 
           x, 
@@ -121,7 +136,15 @@ async function generatePDFWithText(
           text: element.content,
           originalY: element.y,
           pageHeight: height,
-          fontSize: element.fontSize
+          fontSize: element.fontSize,
+          baselineMultiplier,
+          'Y calculation breakdown': {
+            'height': height,
+            'element.y': element.y, 
+            'fontSize * baselineMultiplier': element.fontSize * baselineMultiplier,
+            'yOffset': yOffset,
+            'final calculation': `${height} - ${element.y} - ${element.fontSize * baselineMultiplier} + ${yOffset} = ${y}`
+          }
         })
 
         // Convert hex color to RGB
@@ -168,89 +191,6 @@ async function generatePDFWithText(
 export async function downloadPDFWithText(
   pdfData: ArrayBuffer,
   elements: TextElement[]
-=======
-  pdfData: ArrayBuffer,
-  elements: TextElement[]
-): Promise<PDFDocument> {
-  console.log('Starting PDF generation with elements:', elements)
-  
-  // Convert ArrayBuffer to Uint8Array
-  const pdfBytes = new Uint8Array(pdfData)
-  const pdfDoc = await PDFDocument.load(pdfBytes)
-  
-  console.log('PDF loaded successfully, pages:', pdfDoc.getPageCount())
-
-  // Process each text element
-  for (const element of elements) {
-    try {
-      console.log('Processing element:', element)
-      
-      // Validate element data
-      if (!element || typeof element.pageNumber !== 'number' || !element.content) {
-        console.warn('Skipping invalid element:', element)
-        continue
-      }
-
-      // Get the page (pageNumber is 1-based, but getPage is 0-based)
-      const pageIndex = element.pageNumber - 1
-      if (pageIndex < 0 || pageIndex >= pdfDoc.getPageCount()) {
-        console.warn(`Page ${element.pageNumber} is out of range, skipping element:`, element)
-        continue
-      }
-
-      const page = pdfDoc.getPage(pageIndex)
-      const { width, height } = page.getSize()
-      
-      console.log(`Page ${element.pageNumber} dimensions:`, { width, height })
-
-      // Get the appropriate font
-      let font
-      try {
-        font = await getFontForFamily(pdfDoc, element.fontFamily)
-      } catch (fontError) {
-        console.warn('Font loading failed, using default:', fontError)
-        font = await pdfDoc.embedFont(StandardFonts.Helvetica)
-      }
-
-      // Calculate position (PDF coordinate system has origin at bottom-left)
-      // Use better text metrics for accurate positioning
-      const textMetrics = getTextMetrics(element.fontSize, element.fontFamily)
-      const x = element.x
-      const y = (height - element.y - textMetrics.yAdjustment) - 4.5
-
-      console.log('Drawing text at position:', { x, y, text: element.content })
-
-      // Convert hex color to RGB
-      const color = hexToRgb(element.color)
-      
-      // Create text options
-      const textOptions: any = {
-        x,
-        y,
-        size: element.fontSize,
-        font,
-        color: rgb(color.r / 255, color.g / 255, color.b / 255),
-      }
-
-      // Draw the text
-      page.drawText(element.content, textOptions)
-      
-      console.log('Successfully drew text:', element.content)
-
-    } catch (elementError) {
-      console.error('Error processing element:', element, elementError)
-      // Continue with other elements even if one fails
-    }
-  }
-
-  return pdfDoc
-}
-
-// Function for downloading PDF
-export async function downloadPDFWithText(
-  pdfData: ArrayBuffer,
-  elements: TextElement[]
->>>>>>> 2aea910a7c39968daefea0c9458c84f7e561e985
 ): Promise<Blob> {
   try {
     const pdfDoc = await generatePDFWithText(pdfData, elements)
@@ -268,31 +208,6 @@ export async function downloadPDFWithText(
     throw new Error(`Failed to generate PDF: ${error.message}`)
   }
 }
-// New function for preview - returns ArrayBuffer for PDF viewer
-export async function previewPDFWithText(
-  pdfData: ArrayBuffer,
-  elements: TextElement[]
-): Promise<ArrayBuffer| any> {
-  try {
-    const pdfDoc = await generatePDFWithText(pdfData, elements)
-    
-    console.log('Generating preview PDF...')
-    const pdfBytesResult = await pdfDoc.save()
-    
-    console.log('Preview PDF generated successfully, size:', pdfBytesResult.length)
-    
-    // pdfBytesResult is a Uint8Array, we need to convert it to ArrayBuffer
-    return pdfBytesResult.buffer.slice(
-      pdfBytesResult.byteOffset, 
-      pdfBytesResult.byteOffset + pdfBytesResult.byteLength
-    )
-
-  } catch (error) {
-    console.error('Error in previewPDFWithText:', error)
-    throw new Error(`Failed to generate preview PDF: ${error.message}`)
-  }
-}
-
 // Function for preview - returns ArrayBuffer for PDF viewer
 export async function previewPDFWithText(
   pdfData: ArrayBuffer,
@@ -307,10 +222,11 @@ export async function previewPDFWithText(
     console.log('Preview PDF generated successfully, size:', pdfBytesResult.length)
     
     // pdfBytesResult is a Uint8Array, we need to convert it to ArrayBuffer
-    return pdfBytesResult.buffer.slice(
-      pdfBytesResult.byteOffset, 
-      pdfBytesResult.byteOffset + pdfBytesResult.byteLength
-    )
+    // Create a new ArrayBuffer to avoid SharedArrayBuffer issues
+    const arrayBuffer = new ArrayBuffer(pdfBytesResult.length)
+    const view = new Uint8Array(arrayBuffer)
+    view.set(pdfBytesResult)
+    return arrayBuffer
 
   } catch (error) {
     console.error('Error in previewPDFWithText:', error)
@@ -405,7 +321,6 @@ export function estimateTextWidth(text: string, fontSize: number, fontFamily: st
   return text.length * avgCharWidth
 }
 
-<<<<<<< HEAD
 // Improved text metrics calculation
 export function getTextMetrics(fontSize: number, fontFamily: string) {
   // These are approximate values based on typical font metrics
@@ -433,29 +348,11 @@ export function getTextMetrics(fontSize: number, fontFamily: string) {
     ascenderRatio,
     descenderRatio,
     // Y adjustment to position text correctly (distance from top to baseline)
-=======
-// New utility function for better text positioning
-export function getTextMetrics(fontSize: number, fontFamily: string) {
-  // These are approximate values based on typical font metrics
-  const baselineOffset = fontSize * 0.2 // Distance from bottom of text to baseline
-  const textHeight = fontSize * 0.8 // Actual visible text height
-  const totalHeight = fontSize // Total line height
-  
-  return {
-    baselineOffset,
-    textHeight,
-    totalHeight,
-    // Y adjustment to position text correctly
->>>>>>> 2aea910a7c39968daefea0c9458c84f7e561e985
     yAdjustment: textHeight
   }
 }
 
-<<<<<<< HEAD
 // Enhanced validation function
-=======
-// Additional utility function for validation
->>>>>>> 2aea910a7c39968daefea0c9458c84f7e561e985
 export function validateTextElement(element: any): element is TextElement {
   if (!element) return false
   
@@ -488,6 +385,3 @@ export function sanitizeTextContent(content: string): string {
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control characters
     .trim()
 }
-
-// Export type for external use
-export type { TextElement }

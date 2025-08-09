@@ -198,11 +198,7 @@ export default function TextElement({
       textDecoration,
       lineHeight: 1.2,
       margin: 0,
-<<<<<<< HEAD
       padding: '2px 4px',
-=======
-      padding: '2px 2px',
->>>>>>> 2aea910a7c39968daefea0c9458c84f7e561e985
       borderRadius: '3px',
       minWidth: '30px',
       minHeight: '20px',
@@ -220,7 +216,7 @@ export default function TextElement({
     }
 
     if (isPreviewMode) {
-      // Preview mode: no borders, no interaction
+      // Preview mode: clean, no interaction
       return {
         ...baseStyle,
         backgroundColor: 'transparent',
@@ -230,30 +226,35 @@ export default function TextElement({
       }
     }
 
-    // Edit mode styling
+    // Simple interactive styling
     const interactiveStyle = {
       cursor: isEditing ? 'text' : (isDragging ? 'grabbing' : 'grab'),
-      border: isSelected ? '2px solid #3b82f6' : '1px solid rgba(0,0,0,0.3)',
-      backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255,255,255,0.9)',
-      boxShadow: isSelected ? '0 2px 8px rgba(59, 130, 246, 0.3)' : '0 1px 3px rgba(0,0,0,0.1)',
-      transition: 'all 0.2s ease-in-out',
+      borderRadius: '6px',
+      padding: '4px 8px',
+      margin: '-4px -8px', // Offset padding for precise positioning
+      transition: isDragging ? 'none' : 'all 0.15s ease',
+      boxShadow: isSelected 
+        ? '0 4px 12px rgba(0, 0, 0, 0.15)'
+        : '0 2px 4px rgba(0, 0, 0, 0.1)',
     }
 
-    // Special styling for predefined elements
+    // Predefined elements styling (green theme)
     if (element.isPredefined) {
       return {
         ...baseStyle,
         ...interactiveStyle,
-        backgroundColor: isSelected ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.05)',
-        border: isSelected ? '2px solid #22c55e' : '1px solid rgba(34, 197, 94, 0.5)',
-        boxShadow: isSelected ? '0 2px 8px rgba(34, 197, 94, 0.3)' : '0 1px 3px rgba(34, 197, 94, 0.1)',
-        cursor: isDragging ? 'grabbing' : 'grab', // No text cursor for predefined
+        backgroundColor: isSelected ? 'rgba(34, 197, 94, 0.12)' : 'rgba(34, 197, 94, 0.06)',
+        border: isSelected ? '2px solid rgb(34, 197, 94)' : '1px solid rgba(34, 197, 94, 0.4)',
+        cursor: isDragging ? 'grabbing' : 'grab',
       }
     }
 
+    // Regular elements styling (blue theme)
     return {
       ...baseStyle,
       ...interactiveStyle,
+      backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.12)' : 'rgba(59, 130, 246, 0.06)',
+      border: isSelected ? '2px solid rgb(59, 130, 246)' : '1px solid rgba(59, 130, 246, 0.4)',
     }
   }
 
@@ -297,11 +298,6 @@ export default function TextElement({
         <span>
           {element.content || 'Empty Text'}
         </span>
-      )}
-      
-      {/* Selection indicator */}
-      {isSelected && !isPreviewMode && (
-        <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full pointer-events-none"></div>
       )}
     </div>
   )

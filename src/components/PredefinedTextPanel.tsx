@@ -42,19 +42,21 @@ export default function PredefinedTextPanel({
     e.dataTransfer.setData('application/predefined-text', text)
     e.dataTransfer.effectAllowed = 'copy'
     
-    // Create a custom drag image
+    // Create a simple drag image
     const dragImage = document.createElement('div')
-    dragImage.textContent = text
+    dragImage.textContent = text.length > 25 ? text.substring(0, 25) + '...' : text
     dragImage.style.cssText = `
       position: absolute;
       top: -1000px;
-      background: #3b82f6;
+      background: linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74));
       color: white;
-      padding: 8px 12px;
-      border-radius: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
       font-size: 14px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      max-width: 200px;
+      font-weight: 500;
+      box-shadow: 0 8px 16px rgba(34, 197, 94, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      max-width: 250px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -86,11 +88,11 @@ export default function PredefinedTextPanel({
       <h3 className="text-sm font-medium text-gray-900 mb-3">
         Predefined Text
       </h3>
-      <div className="text-xs text-gray-500 mb-3">
+      <div className="text-xs text-gray-600 mb-3">
         Drag these to the PDF or click to add at default position
       </div>
       
-      <div className="space-y-2">
+      <div className="space-y-3">
         {PREDEFINED_TEXTS.map((text, index) => (
           <div
             key={index}
@@ -99,18 +101,19 @@ export default function PredefinedTextPanel({
             onDragEnd={handleDragEnd}
             onClick={() => handleClick(text)}
             className={`
-              flex items-center p-3 border rounded-lg cursor-move transition-all duration-200
+              flex items-center p-3 border-2 rounded-lg cursor-move transition-all duration-200
               ${draggedText === text 
-                ? 'border-blue-500 bg-blue-50 shadow-md' 
-                : 'border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100'
+                ? 'border-green-500 bg-green-50 shadow-md' 
+                : 'border-green-200 bg-green-50/50 hover:border-green-400 hover:bg-green-50'
               }
-              group
             `}
             title="Drag to PDF or click to add"
           >
             <div className="flex-shrink-0 mr-3">
               <svg 
-                className="w-4 h-4 text-gray-400 group-hover:text-gray-600" 
+                className={`w-4 h-4 transition-colors duration-200 ${
+                  draggedText === text ? 'text-green-600' : 'text-green-500'
+                }`}
                 fill="none" 
                 viewBox="0 0 24 24" 
                 stroke="currentColor"
@@ -119,7 +122,7 @@ export default function PredefinedTextPanel({
                   strokeLinecap="round" 
                   strokeLinejoin="round" 
                   strokeWidth={2} 
-                  d="M7 11l5-5m0 0l5 5m-5-5v12" 
+                  d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" 
                 />
               </svg>
             </div>
@@ -128,44 +131,17 @@ export default function PredefinedTextPanel({
               <div className="text-sm font-medium text-gray-900 truncate">
                 {text.length > 30 ? `${text.substring(0, 30)}...` : text}
               </div>
-              <div className="text-xs text-gray-500 mt-0.5">
-                {index === 0 && "Name"}
-                {index === 1 && "ID Number"}
-                {index === 2 && "Address"}
-              </div>
             </div>
 
             <div className="flex-shrink-0 ml-2">
-              <div className="w-2 h-2 bg-gray-300 rounded-full mb-1"></div>
-              <div className="w-2 h-2 bg-gray-300 rounded-full mb-1"></div>
-              <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+              <div className="flex flex-col space-y-1">
+                <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
+                <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
+                <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
+              </div>
             </div>
           </div>
         ))}
-      </div>
-
-      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-        <div className="flex items-start">
-          <svg 
-            className="w-4 h-4 text-blue-500 mt-0.5 mr-2 flex-shrink-0" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
-            />
-          </svg>
-          <div className="text-xs text-blue-700">
-            <div className="font-medium mb-1">How to use:</div>
-            <div>• Drag text directly onto PDF</div>
-            <div>• Click text to add at default position</div>
-            <div>• Predefined text cannot be edited</div>
-          </div>
-        </div>
       </div>
     </div>
   )

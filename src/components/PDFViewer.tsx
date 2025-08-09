@@ -59,10 +59,11 @@ export default function PDFViewer({
   onAddTextAtPosition,
   isPreviewMode = false
 }: PDFViewerProps) {
-  const [scale, setScale] = useState(1.2)
+  const [scale] = useState(1.2) // Fixed at 120% zoom
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pageDimensions, setPageDimensions] = useState({ width: 800, height: 600 })
   const [pageRect, setPageRect] = useState<DOMRect | null>(null)
+  const [pdfTextItems, setPdfTextItems] = useState<Array<{x: number, y: number, width: number, height: number}>>([])
   const pdfContainerRef = useRef<HTMLDivElement>(null)
   const pageRef = useRef<HTMLDivElement>(null)
 
@@ -81,15 +82,66 @@ export default function PDFViewer({
     onNumPagesChange(pages)
   }, [onNumPagesChange])
 
+  // Extract text content from PDF page for snapping alignment
+  const extractTextContent = useCallback(async (page: any) => {
+    try {
+      const textContent = await page.getTextContent()
+      const textItems: Array<{x: number, y: number, width: number, height: number}> = []
+      
+      // Get page dimensions for coordinate conversion
+      const viewport = page.getViewport({ scale: 1.0 })
+      const pageHeight = viewport.height
+      
+      for (const item of textContent.items) {
+        if (item.str && item.str.trim()) {
+          // Transform coordinates from PDF space to our coordinate system
+          const transform = item.transform
+          const x = transform[4] // x position
+          const y = transform[5] // y position
+          const width = item.width || 0
+          const height = item.height || (item.fontsize || 12)
+          
+          // Convert from PDF coordinates (bottom-left origin) to our coordinates (top-left origin)
+          const convertedY = pageHeight - y
+          
+          textItems.push({
+            x: x,
+            y: convertedY,
+            width: width,
+            height: height
+          })
+        }
+      }
+      
+      setPdfTextItems(textItems)
+      console.log(`Extracted ${textItems.length} text items from PDF page ${currentPage}:`)
+      console.log('Sample text items:', textItems.slice(0, 10))
+      
+    } catch (error) {
+      console.warn('Could not extract text content for snapping:', error)
+      setPdfTextItems([])
+    }
+  }, [currentPage])
+
   const handlePageLoadSuccess = useCallback((page: any) => {
     const viewport = page.getViewport({ scale: 1.0 })
     setPageDimensions({ width: viewport.width, height: viewport.height })
+    
+    console.log('=== PDF VIEWER PAGE DIMENSIONS ===')
+    console.log('Method: page.getViewport({ scale: 1.0 }) - PDF viewer')
+    console.log('Dimensions:', { width: viewport.width, height: viewport.height })
+    console.log('Current scale:', scale)
+    console.log('Effective display size:', { width: viewport.width * scale, height: viewport.height * scale })
+    console.log('==================================')
+    
+    // Extract text content for snapping
+    extractTextContent(page)
     
     // Update page rect for coordinate calculations
     setTimeout(() => {
       updatePageRect()
     }, 100)
-  }, [])
+  }, [scale, extractTextContent])
 
   // Update page rect detection
   const updatePageRect = useCallback(() => {
@@ -119,7 +171,12 @@ export default function PDFViewer({
     }
   }, [scale, currentPage, updatePageRect])
 
-  // FIXED: Improved coordinate conversion function
+  // Clear PDF text items when page changes
+  useEffect(() => {
+    setPdfTextItems([])
+  }, [currentPage])
+
+  // FIXED: Improved coordinate conversion function with line alignment
   const screenToPdfCoordinates = useCallback((screenX: number, screenY: number) => {
     if (!pageRef.current) return { x: 0, y: 0 }
 
@@ -142,17 +199,106 @@ export default function PDFViewer({
     console.log('Screen coordinates:', { x: screenX, y: screenY })
     console.log('Page rect:', { left: pageRect.left, top: pageRect.top, width: pageRect.width, height: pageRect.height })
     console.log('Relative coordinates:', { x: relativeX, y: relativeY })
-    console.log('PDF dimensions:', pageDimensions)
-    console.log('Scale:', scale)
-    console.log('Final PDF coordinates:', { x: pdfX, y: pdfY })
+    console.log('Current scale:', scale)
+    console.log('PDF dimensions (from viewport):', pageDimensions)
+    console.log('Calculated PDF coordinates (before scale division):', { x: relativeX, y: relativeY })
+    console.log('Final PDF coordinates (after scale division):', { x: pdfX, y: pdfY })
+    
+    // Line alignment feature: Check if there are nearby text elements OR PDF text to align with
+    const snapThreshold = 20 // pixels in PDF coordinates - increased for testing
+    let alignedY = pdfY
+    let alignedX = pdfX
+    
+    // Get text elements on current page
+    const pageElements = textElements.filter(el => el.pageNumber === currentPage)
+    
+    // Combine manual text elements and PDF text items for snapping
+    const allSnapTargets = [
+      // Manual text elements
+      ...pageElements.map(el => ({
+        textY: el.y + 4, // Add padding offset (4px from TextElement styling)
+        textX: el.x + 8, // Add padding offset (8px from TextElement styling)
+        type: 'manual'
+      })),
+      // PDF text items
+      ...pdfTextItems.map(item => ({
+        textY: item.y,
+        textX: item.x,
+        type: 'pdf'
+      }))
+    ]
+    
+    console.log('PDF text items for snapping:', pdfTextItems.length)
+    console.log('Manual text elements for snapping:', pageElements.length)
+    console.log('Total snap targets:', allSnapTargets.length)
+    console.log('Sample snap targets:', allSnapTargets.slice(0, 5))
+    
+    if (allSnapTargets.length > 0) {
+      // Find the closest Y position (horizontal line alignment)
+      let closestYDistance = Infinity
+      let closestY = pdfY
+      let closestYType = 'none'
+      
+      // Find the closest X position (vertical line alignment)  
+      let closestXDistance = Infinity
+      let closestX = pdfX
+      let closestXType = 'none'
+      
+      for (const target of allSnapTargets) {
+        // Check Y alignment (horizontal lines)
+        const yDistance = Math.abs(target.textY - pdfY)
+        if (yDistance < closestYDistance && yDistance <= snapThreshold) {
+          closestYDistance = yDistance
+          closestY = target.textY
+          closestYType = target.type
+        }
+        
+        // Check X alignment (vertical lines)
+        const xDistance = Math.abs(target.textX - pdfX)
+        if (xDistance < closestXDistance && xDistance <= snapThreshold) {
+          closestXDistance = xDistance
+          closestX = target.textX
+          closestXType = target.type
+        }
+      }
+      
+      // Apply snapping if close enough
+      if (closestYDistance <= snapThreshold) {
+        // For manual elements, subtract padding to get container position
+        // For PDF text, use the position directly
+        alignedY = closestYType === 'manual' ? closestY - 4 : closestY
+        console.log(`🎯 Y-SNAPPED to ${closestYType} text line at Y=${closestY} (container Y=${alignedY}, was ${pdfY}, distance=${closestYDistance})`)
+      }
+      
+      if (closestXDistance <= snapThreshold) {
+        // For manual elements, subtract padding to get container position
+        // For PDF text, use the position directly
+        alignedX = closestXType === 'manual' ? closestX - 8 : closestX
+        console.log(`🎯 X-SNAPPED to ${closestXType} text line at X=${closestX} (container X=${alignedX}, was ${pdfX}, distance=${closestXDistance})`)
+      }
+    }
+    
+    console.log('Final PDF coordinates (after alignment):', { x: alignedX, y: alignedY })
     console.log('=============================')
     
     // Constrain to PDF bounds
-    const constrainedX = Math.max(0, Math.min(pdfX, pageDimensions.width))
-    const constrainedY = Math.max(0, Math.min(pdfY, pageDimensions.height))
+    const constrainedX = Math.max(0, Math.min(alignedX, pageDimensions.width))
+    const constrainedY = Math.max(0, Math.min(alignedY, pageDimensions.height))
+    
+    console.log('Constrained coordinates:', { x: constrainedX, y: constrainedY })
     
     return { x: constrainedX, y: constrainedY }
-  }, [scale, pageDimensions])
+  }, [scale, pageDimensions, textElements, currentPage, pdfTextItems])
+
+  // Handle mouse move for alignment preview - removed visual guides
+  const handlePdfMouseMove = useCallback((e: React.MouseEvent) => {
+    // Guides removed - alignment only happens during drag operations
+  }, [])
+
+  // Clear guides when mouse leaves PDF area - no longer needed
+  const handlePdfMouseLeave = useCallback(() => {
+    // No guides to clear
+  }, [])
 
   // Handle double click on PDF to add text
   const handlePdfDoubleClick = useCallback((e: React.MouseEvent) => {
@@ -185,10 +331,6 @@ export default function PDFViewer({
     if (currentPage < numPages) onPageChange(currentPage + 1)
   }, [currentPage, numPages, onPageChange])
 
-  const zoomIn = useCallback(() => setScale(prev => Math.min(prev + 0.2, 3)), [])
-  const zoomOut = useCallback(() => setScale(prev => Math.max(prev - 0.2, 0.5)), [])
-  const resetZoom = useCallback(() => setScale(1.2), [])
-
   // Debug function for testing coordinates
   const debugCoordinates = useCallback(() => {
     if (!pageRef.current) return
@@ -203,8 +345,14 @@ export default function PDFViewer({
     console.log('Page dimensions:', pageDimensions)
     console.log('Current page rect state:', pageRect)
     console.log('Text elements on current page:', textElements.filter(el => el.pageNumber === currentPage))
+    console.log('PDF text items extracted:', pdfTextItems)
     console.log('========================')
-  }, [scale, pageDimensions, pageRect, textElements, currentPage])
+  }, [scale, pageDimensions, pageRect, textElements, currentPage, pdfTextItems])
+
+  // Make debug function available globally for testing
+  useEffect(() => {
+    (window as any).debugPDFViewer = debugCoordinates
+  }, [debugCoordinates])
 
   // Filter text elements for current page
   const currentPageElements = textElements.filter(el => el.pageNumber === currentPage)
@@ -214,7 +362,7 @@ export default function PDFViewer({
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="flex items-center justify-center p-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-2 text-gray-600">Loading PDF...</span>
+          <span className="ml-2 text-gray-700">Loading PDF...</span>
         </div>
       </div>
     )
@@ -228,51 +376,19 @@ export default function PDFViewer({
           <button
             onClick={goToPreviousPage}
             disabled={currentPage <= 1}
-            className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             ← Previous
           </button>
-          <span className="text-sm text-gray-600 px-2">
+          <span className="text-sm text-gray-700 px-2">
             Page {currentPage} of {numPages}
           </span>
           <button
             onClick={goToNextPage}
             disabled={currentPage >= numPages}
-            className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Next →
-          </button>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button 
-            onClick={zoomOut} 
-            className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-            title="Zoom Out"
-          >
-            −
-          </button>
-          <span className="text-sm text-gray-600 min-w-[60px] text-center">{Math.round(scale * 100)}%</span>
-          <button 
-            onClick={zoomIn} 
-            className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-            title="Zoom In"
-          >
-            +
-          </button>
-          <button 
-            onClick={resetZoom} 
-            className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-xs"
-            title="Reset Zoom"
-          >
-            Reset
-          </button>
-          {/* Debug button */}
-          <button 
-            onClick={debugCoordinates} 
-            className="px-2 py-1 bg-red-200 text-xs rounded"
-            title="Debug Coordinates"
-          >
-            Debug
           </button>
         </div>
       </div>
@@ -289,8 +405,10 @@ export default function PDFViewer({
             <div 
               ref={pageRef}
               onDoubleClick={handlePdfDoubleClick}
+              onMouseMove={handlePdfMouseMove}
+              onMouseLeave={handlePdfMouseLeave}
               className={`relative ${!isPreviewMode ? 'cursor-crosshair' : ''}`}
-              title={!isPreviewMode ? "Double-click to add text" : ""}
+              title={!isPreviewMode ? "Double-click to add text • Text will snap to align with PDF content" : ""}
             >
               <Document
                 file={pdfUrl}
@@ -303,7 +421,7 @@ export default function PDFViewer({
                 loading={
                   <div className="flex items-center justify-center p-8">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                    <span className="ml-2 text-gray-600">Loading document...</span>
+                    <span className="ml-2 text-gray-700">Loading document...</span>
                   </div>
                 }
               >
@@ -321,7 +439,7 @@ export default function PDFViewer({
                     loading={
                       <div className="flex items-center justify-center p-8 bg-white border border-gray-300">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                        <span className="ml-2 text-gray-600">Loading page...</span>
+                        <span className="ml-2 text-gray-700">Loading page...</span>
                       </div>
                     }
                   />
@@ -370,7 +488,7 @@ export default function PDFViewer({
           )}
           {!isPreviewMode && (
             <span className="ml-2 text-green-600">
-              • Double-click PDF to add text
+              • Double-click PDF to add text • Drag text to snap align with PDF content
             </span>
           )}
         </span>

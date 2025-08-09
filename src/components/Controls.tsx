@@ -116,7 +116,7 @@ export default function Controls({
             <select
               value={selectedElement.fontFamily}
               onChange={(e) => handleFontFamilyChange(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               {FONT_FAMILIES.map(font => (
                 <option key={font.value} value={font.value}>
@@ -134,7 +134,7 @@ export default function Controls({
             <select
               value={selectedElement.fontSize}
               onChange={(e) => handleFontSizeChange(Number(e.target.value))}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               {FONT_SIZES.map(size => (
                 <option key={size} value={size}>
@@ -152,30 +152,30 @@ export default function Controls({
             <div className="flex space-x-2">
               <button
                 onClick={handleBoldToggle}
-                className={`px-3 py-2 rounded border text-sm font-bold ${
+                className={`px-3 py-2 rounded border text-sm font-bold transition-colors ${
                   selectedElement.bold
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    : 'bg-white text-gray-900 border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 B
               </button>
               <button
                 onClick={handleItalicToggle}
-                className={`px-3 py-2 rounded border text-sm italic ${
+                className={`px-3 py-2 rounded border text-sm italic transition-colors ${
                   selectedElement.italic
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    : 'bg-white text-gray-900 border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 I
               </button>
               <button
                 onClick={handleUnderlineToggle}
-                className={`px-3 py-2 rounded border text-sm underline ${
+                className={`px-3 py-2 rounded border text-sm underline transition-colors ${
                   selectedElement.underline
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    : 'bg-white text-gray-900 border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 U
@@ -218,7 +218,7 @@ export default function Controls({
                 type="text"
                 value={selectedElement.color}
                 onChange={(e) => handleColorChange(e.target.value)}
-                className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm font-mono"
+                className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm text-gray-900 bg-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="#000000"
               />
             </div>
@@ -250,7 +250,42 @@ export default function Controls({
       {/* Preview/Download Actions */}
       <div className="bg-white rounded-lg shadow-sm border p-4 space-y-3">
         {/* Preview Button */}
-       
+        <button
+          onClick={onPreview}
+          disabled={isLoading}
+          title={isPreviewMode ? "Exit Preview Mode" : "Preview PDF (Ctrl/Cmd + P)"}
+          className={`w-full font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center ${
+            isPreviewMode 
+              ? 'bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white' 
+              : 'bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white'
+          }`}
+        >
+          {isLoading ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              {isPreviewMode ? 'Exiting Preview...' : 'Generating Preview...'}
+            </>
+          ) : (
+            <>
+              {isPreviewMode ? (
+                <>
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                  </svg>
+                  Exit Preview
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  Preview PDF
+                </>
+              )}
+            </>
+          )}
+        </button>
 
         {/* Download Button */}
         <button
@@ -274,8 +309,24 @@ export default function Controls({
         </button>
       </div>
 
-   
-      
+      {/* Preview Mode Info */}
+      {isPreviewMode && (
+        <div className="bg-purple-50 rounded-lg border border-purple-200 p-4">
+          <div className="flex items-start">
+            <svg className="w-4 h-4 text-purple-500 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <div className="text-xs text-purple-700">
+              <div className="font-medium mb-1">Preview Mode Active</div>
+              <div>• Viewing final PDF with all text applied</div>
+              <div>• No editing allowed in this mode</div>
+              <div>• Click "Exit Preview" to return to editing</div>
+              <div>• Use "Download PDF" to save the final result</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Instructions */}
       {!isPreviewMode && (
@@ -286,7 +337,7 @@ export default function Controls({
             <li>• Drag text elements to position them</li>
             <li>• Double-click text to edit content</li>
             <li>• Click text to select and format it</li>
-            <li>• Use "Preview PDF" to see final result</li>
+            <li>• Use "Preview PDF" to see final result (Ctrl/Cmd+P)</li>
             <li>• Use "Download PDF" to save changes</li>
           </ul>
         </div>

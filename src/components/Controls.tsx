@@ -459,25 +459,18 @@ export default function Controls({
           )}
         </button>
 
-        {/* Download Button */}
+        {/* Download Button - Disabled during development */}
         <button
-          onClick={onDownload}
-          disabled={isLoading}
-          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center"
+          onClick={() => {
+            alert('Download feature is temporarily disabled during development phase. Please use Preview to view your changes.')
+          }}
+          disabled={true}
+          className="w-full bg-gray-400 text-gray-200 font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center cursor-not-allowed"
         >
-          {isLoading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Processing...
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Download PDF
-            </>
-          )}
+          <svg className="w-4 h-4 mr-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Download PDF (Dev Mode)
         </button>
       </div>
 
@@ -493,8 +486,8 @@ export default function Controls({
               <div className="font-medium mb-1">Preview Mode Active</div>
               <div>• Viewing final PDF with all text applied</div>
               <div>• No editing allowed in this mode</div>
-              <div>• Click "Exit Preview" to return to editing</div>
-              <div>• Use "Download PDF" to save the final result</div>
+              <div>• Click &quot;Exit Preview&quot; to return to editing</div>
+              <div>• Download feature disabled during development</div>
             </div>
           </div>
         </div>
@@ -505,12 +498,12 @@ export default function Controls({
         <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
           <h4 className="font-medium text-blue-900 mb-2">How to use:</h4>
           <ul className="text-sm text-blue-800 space-y-1">
-            <li>• Click "Add Text" to create new text</li>
+            <li>• Click &quot;Add Text&quot; to create new text</li>
             <li>• Drag text elements to position them</li>
             <li>• Double-click text to edit content</li>
             <li>• Click text to select and format it</li>
-            <li>• Use "Preview PDF" to see final result (Ctrl/Cmd+P)</li>
-            <li>• Use "Download PDF" to save changes</li>
+            <li>• Use &quot;Preview PDF&quot; to see final result (Ctrl/Cmd+P)</li>
+            <li>• Download feature temporarily disabled during development</li>
           </ul>
         </div>
       )}

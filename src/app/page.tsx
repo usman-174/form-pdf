@@ -531,8 +531,9 @@ export default function Page() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                PDF Form Filler & Editor
+                PDF Form Filler & Editor 
               </h1>
+              <p className='text-sm text-red-600'>proof of concept</p>
               {isPreviewMode && (
                 <div className="flex items-center text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg">
                   <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">

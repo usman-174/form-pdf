@@ -464,18 +464,25 @@ export default function Controls({
           )}
         </button>
 
-        {/* Download Button - Disabled during development */}
+        {/* Download Button - Now Enabled */}
         <button
-          onClick={() => {
-            alert('Download feature is temporarily disabled during development phase. Please use Preview to view your changes.')
-          }}
-          disabled={true}
-          className="w-full bg-gray-400 text-gray-200 font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center cursor-not-allowed"
+          onClick={onDownload}
+          disabled={isLoading}
+          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center"
         >
-          <svg className="w-4 h-4 mr-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          Download PDF (Dev Mode)
+          {isLoading ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              Preparing Download...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download PDF
+            </>
+          )}
         </button>
       </div>
 
@@ -492,7 +499,6 @@ export default function Controls({
               <div>• Viewing final PDF with all text applied</div>
               <div>• No editing allowed in this mode</div>
               <div>• Click &quot;Exit Preview&quot; to return to editing</div>
-              <div>• Download feature disabled during development</div>
             </div>
           </div>
         </div>

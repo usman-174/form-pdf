@@ -562,7 +562,7 @@ export default function Page() {
   // Handle PDF download with better error handling
   const handleDownload = useCallback(async () => {
     if (!pdfData || !pdfFile) {
-      alert('No PDF loaded')
+      toast.error('No PDF loaded. Please upload a PDF file first.')
       return
     }
 
@@ -586,6 +586,8 @@ export default function Page() {
     console.log('Valid elements for processing:', validElements)
 
     setIsLoading(true)
+    toast.info('Preparing PDF download...')
+    
     try {
       const modifiedPdfBlob = await downloadPDFWithText(pdfData, validElements)
       
@@ -598,9 +600,11 @@ export default function Page() {
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
+      
+      toast.success(`PDF downloaded successfully! "${link.download}"`)
     } catch (error) {
       console.error('Error downloading PDF:', error)
-      alert(`Error generating PDF download: ${error.message || error}`)
+      toast.error(`Error generating PDF download: ${error.message || error}`)
     } finally {
       setIsLoading(false)
     }
@@ -624,7 +628,6 @@ export default function Page() {
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
                 PDF Form Filler & Editor 
               </h1>
-              <p className='text-sm text-red-600'>proof of concept</p>
               {isPreviewMode && (
                 <div className="flex items-center text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg">
                   <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">

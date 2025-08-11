@@ -43,6 +43,7 @@ interface PDFViewerProps {
   onTextElementUpdate: (id: string, updates: Partial<TextElement>) => void
   onTextElementSelect: (id: string | null) => void
   onAddTextAtPosition?: (x: number, y: number) => void
+  onPageDimensionsChange?: (dimensions: { width: number; height: number }) => void
   isPreviewMode?: boolean
 }
 
@@ -57,6 +58,7 @@ export default function PDFViewer({
   onTextElementUpdate,
   onTextElementSelect,
   onAddTextAtPosition,
+  onPageDimensionsChange,
   isPreviewMode = false
 }: PDFViewerProps) {
   const [scale] = useState(1.2) // Fixed at 120% zoom
@@ -125,13 +127,17 @@ export default function PDFViewer({
 
   const handlePageLoadSuccess = useCallback((page: any) => {
     const viewport = page.getViewport({ scale: 1.0 })
-    setPageDimensions({ width: viewport.width, height: viewport.height })
+    const dimensions = { width: viewport.width, height: viewport.height }
+    setPageDimensions(dimensions)
+    
+    // Notify parent component about the page dimensions
+    onPageDimensionsChange?.(dimensions)
     
     console.log('=== PDF VIEWER PAGE DIMENSIONS ===')
     console.log('Method: page.getViewport({ scale: 1.0 }) - PDF viewer')
-    console.log('Dimensions:', { width: viewport.width, height: viewport.height })
+    console.log('Dimensions:', dimensions)
     console.log('Current scale:', scale)
-    console.log('Effective display size:', { width: viewport.width * scale, height: viewport.height * scale })
+    console.log('Effective display size:', { width: dimensions.width * scale, height: dimensions.height * scale })
     console.log('==================================')
     
     // Extract text content for snapping
@@ -141,7 +147,7 @@ export default function PDFViewer({
     setTimeout(() => {
       updatePageRect()
     }, 100)
-  }, [scale, extractTextContent])
+  }, [scale, extractTextContent, onPageDimensionsChange])
 
   // Update page rect detection
   const updatePageRect = useCallback(() => {

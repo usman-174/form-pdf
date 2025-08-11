@@ -131,9 +131,14 @@ export default function Controls({
           <button
             onClick={onAddText}
             disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+            title="Add new text element to the center of the PDF (Keyboard shortcut: T)"
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center group hover:shadow-lg transform hover:scale-105"
           >
-            + Add Text
+            <svg className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add Text
+            <span className="ml-2 text-xs bg-blue-500 px-1.5 py-0.5 rounded opacity-75">T</span>
           </button>
         </div>
       )}
@@ -493,18 +498,49 @@ export default function Controls({
         </div>
       )}
 
-      {/* Instructions */}
+      {/* Enhanced Instructions */}
       {!isPreviewMode && (
-        <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
-          <h4 className="font-medium text-blue-900 mb-2">How to use:</h4>
-          <ul className="text-sm text-blue-800 space-y-1">
-            <li>• Click &quot;Add Text&quot; to create new text</li>
-            <li>• Drag text elements to position them</li>
-            <li>• Double-click text to edit content</li>
-            <li>• Click text to select and format it</li>
-            <li>• Use &quot;Preview PDF&quot; to see final result (Ctrl/Cmd+P)</li>
-            <li>• Download feature temporarily disabled during development</li>
-          </ul>
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-4">
+          <h4 className="font-semibold text-blue-900 mb-3 flex items-center">
+            <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Quick Guide
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-blue-800">
+            <div className="space-y-2">
+              <h5 className="font-medium text-blue-900">Adding Text:</h5>
+              <ul className="space-y-1 text-xs">
+                <li>• Click &quot;Add Text&quot; or press <kbd className="px-1.5 py-0.5 bg-blue-200 rounded text-xs">T</kbd></li>
+                <li>• Double-click anywhere on PDF</li>
+                <li>• Drag text from predefined panel</li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <h5 className="font-medium text-blue-900">Editing Text:</h5>
+              <ul className="space-y-1 text-xs">
+                <li>• Double-click text to edit content</li>
+                <li>• Click text to select & format</li>
+                <li>• Drag text to reposition</li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <h5 className="font-medium text-blue-900">Keyboard Shortcuts:</h5>
+              <ul className="space-y-1 text-xs">
+                <li>• <kbd className="px-1.5 py-0.5 bg-blue-200 rounded text-xs">Ctrl/Cmd + P</kbd> Preview</li>
+                <li>• <kbd className="px-1.5 py-0.5 bg-blue-200 rounded text-xs">Delete</kbd> Remove selected</li>
+                <li>• <kbd className="px-1.5 py-0.5 bg-blue-200 rounded text-xs">Esc</kbd> Deselect</li>
+                <li>• <kbd className="px-1.5 py-0.5 bg-blue-200 rounded text-xs">1</kbd><kbd className="px-1.5 py-0.5 bg-blue-200 rounded text-xs ml-0.5">2</kbd><kbd className="px-1.5 py-0.5 bg-blue-200 rounded text-xs ml-0.5">3</kbd> Add predefined texts</li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <h5 className="font-medium text-blue-900">Fine Positioning:</h5>
+              <ul className="space-y-1 text-xs">
+                <li>• Use arrow keys when text is selected</li>
+                <li>• Preview shows final result</li>
+              </ul>
+            </div>
+          </div>
         </div>
       )}
     </div>

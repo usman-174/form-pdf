@@ -4,16 +4,21 @@ import { useState, useCallback, useEffect } from 'react'
 import Controls from '@/components/Controls'
 import PredefinedTextPanel from '@/components/PredefinedTextPanel'
 import { downloadPDFWithText, previewPDFWithText, analyzePDFForDefaultFont } from '@/lib/pdf-utils'
+import { toast } from '@/components/Toast'
 import dynamic from 'next/dynamic'
 
-// Dynamic import with proper loading state
+// Dynamic import with enhanced loading state
 const PDFViewer = dynamic(() => import('@/components/PDFViewer'), {
   ssr: false,
   loading: () => (
     <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-      <div className="flex justify-center items-center h-64 text-gray-700">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
-        Loading PDF Viewer...
+      <div className="flex flex-col justify-center items-center h-96 text-gray-700">
+        <div className="relative">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600"></div>
+          <div className="absolute inset-0 rounded-full h-12 w-12 border-4 border-transparent border-r-blue-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+        </div>
+        <p className="mt-4 text-lg font-medium">Loading PDF Viewer...</p>
+        <p className="mt-1 text-sm text-gray-500">Preparing advanced text editing tools</p>
       </div>
     </div>
   ),
@@ -119,6 +124,7 @@ export default function Page() {
   const [previewPdfData, setPreviewPdfData] = useState<ArrayBuffer | null>(null)
   const [numPages, setNumPages] = useState<number>(1)
   const [currentPage, setCurrentPage] = useState<number>(1)
+  const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({ width: 800, height: 600 })
   
   // Text elements state
   const [textElements, setTextElements] = useState<TextElement[]>([])
@@ -131,12 +137,24 @@ export default function Page() {
   // Handle PDF file upload
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (!file || file.type !== 'application/pdf') {
-      alert('Please select a valid PDF file')
+    if (!file) return
+
+    // Validate file type
+    if (file.type !== 'application/pdf') {
+      toast.error('Please select a valid PDF file. Only PDF files are supported.')
+      return
+    }
+
+    // Validate file size (limit to 50MB)
+    const maxSize = 50 * 1024 * 1024 // 50MB in bytes
+    if (file.size > maxSize) {
+      toast.error('File size too large. Please select a PDF file smaller than 50MB.')
       return
     }
 
     setIsLoading(true)
+    toast.info('Loading PDF file...')
+    
     try {
       const arrayBuffer = await file.arrayBuffer()
       setPdfFile(file)
@@ -146,9 +164,11 @@ export default function Page() {
       setSelectedElementId(null)
       setCurrentPage(1)
       setIsPreviewMode(false) // Exit preview mode when new file is loaded
+      
+      toast.success(`PDF loaded successfully! "${file.name}"`)
     } catch (error) {
       console.error('Error loading PDF:', error)
-      alert('Error loading PDF file')
+      toast.error('Failed to load PDF file. The file may be corrupted or password-protected.')
     } finally {
       setIsLoading(false)
     }
@@ -205,8 +225,13 @@ export default function Page() {
       setSelectedElementId(newElement.id)
       
       console.log('Added text element at position:', { x, y, content, isPredefined })
+      
+      // Show success toast
+      toast.success(isPredefined ? 'Predefined text added!' : 'Text element added successfully!')
     } catch (error) {
       console.error('Error adding text element:', error)
+      toast.error('Failed to analyze PDF font, using default formatting.')
+      
       // Fallback to default values
       const newElement: TextElement = {
         id: `text-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -242,31 +267,29 @@ export default function Page() {
     }
   }, [pdfData, currentPage, isPreviewMode])
 
-  // Add regular text element (for button click)
+  // Add regular text element (for button click) - positioned at center of PDF
   const addTextElement = useCallback(async () => {
-    // Use coordinates that account for the TextElement styling offsets
-    // Add the same adjustments as the double-click handler for consistency
+    // Calculate center coordinates based on actual PDF dimensions
     const scale = 1.2 // Match PDFViewer scale
-    const baseX = 200
-    const baseY = 100
-    const adjustedX = baseX + (8 / scale) // Account for horizontal margin offset
-    const adjustedY = baseY + (4 / scale) // Account for vertical margin offset
+    const centerX = pageDimensions.width / 2
+    const centerY = pageDimensions.height / 2
+    const adjustedX = centerX + (8 / scale) // Account for horizontal margin offset
+    const adjustedY = centerY + (4 / scale) // Account for vertical margin offset
     
     await addTextElementAtPosition(adjustedX, adjustedY, 'New Text', false)
-  }, [addTextElementAtPosition])
+  }, [addTextElementAtPosition, pageDimensions])
 
-  // Add predefined text element
+  // Add predefined text element - positioned at center of PDF
   const addPredefinedText = useCallback(async (text: string) => {
-    // Use coordinates that account for the TextElement styling offsets
-    // Add the same adjustments as the double-click handler for consistency
+    // Calculate center coordinates based on actual PDF dimensions (same as addTextElement)
     const scale = 1.2 // Match PDFViewer scale
-    const baseX = 100
-    const baseY = 100
-    const adjustedX = baseX + (8 / scale) // Account for horizontal margin offset
-    const adjustedY = baseY + (4 / scale) // Account for vertical margin offset
+    const centerX = pageDimensions.width / 2
+    const centerY = pageDimensions.height / 2
+    const adjustedX = centerX + (8 / scale) // Account for horizontal margin offset
+    const adjustedY = centerY + (4 / scale) // Account for vertical margin offset
     
     await addTextElementAtPosition(adjustedX, adjustedY, text, true)
-  }, [addTextElementAtPosition])
+  }, [addTextElementAtPosition, pageDimensions])
 
   // Handle predefined text drop with proper coordinate conversion
   const handleDropPredefinedText = useCallback(async (text: string, screenX: number, screenY: number) => {
@@ -323,7 +346,7 @@ export default function Page() {
     }
   }, [pdfData, isPreviewMode, addTextElementAtPosition])
 
-  // Update text element with logging
+  // Update text element with logging and toast feedback
   const updateTextElement = useCallback((id: string, updates: Partial<TextElement>) => {
     if (isPreviewMode) return // Don't allow updates in preview mode
     
@@ -335,6 +358,11 @@ export default function Page() {
       console.log('Updated elements:', updated)
       return updated
     })
+    
+    // Show subtle feedback for content updates
+    if (updates.content) {
+      toast.success('Text content updated!', 2000) // Shorter duration for frequent updates
+    }
   }, [isPreviewMode])
 
   // Delete text element
@@ -345,6 +373,9 @@ export default function Page() {
     if (selectedElementId === id) {
       setSelectedElementId(null)
     }
+    
+    // Show success toast
+    toast.success('Text element deleted successfully!')
   }, [selectedElementId, isPreviewMode])
 
   // Handle text element selection
@@ -352,6 +383,11 @@ export default function Page() {
     if (isPreviewMode) return // Don't allow selection in preview mode
     setSelectedElementId(id)
   }, [isPreviewMode])
+
+  // Handle page dimensions change from PDFViewer
+  const handlePageDimensionsChange = useCallback((dimensions: { width: number; height: number }) => {
+    setPageDimensions(dimensions)
+  }, [])
 
   // Get selected text element
   const selectedElement = selectedElementId 
@@ -421,19 +457,74 @@ export default function Page() {
     }, 100)
   }, [pdfData, pdfFile, textElements, isPreviewMode])
 
-  // Keyboard shortcuts
+  // Enhanced keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts if user is typing in an input
+      const activeElement = document.activeElement
+      const isTyping = activeElement?.tagName === 'INPUT' || 
+                      activeElement?.tagName === 'TEXTAREA' || 
+                      (activeElement as HTMLElement)?.isContentEditable
+
+      if (isTyping) return
+
       // Ctrl/Cmd + P for preview
       if ((e.ctrlKey || e.metaKey) && e.key === 'p' && pdfData) {
         e.preventDefault()
         handlePreview()
+        return
+      }
+
+      // T for add text
+      if (e.key.toLowerCase() === 't' && pdfData && !isPreviewMode) {
+        e.preventDefault()
+        addTextElement()
+        return
+      }
+
+      // 1, 2, 3 for predefined texts
+      if ((e.key === '1' || e.key === '2' || e.key === '3') && pdfData && !isPreviewMode) {
+        e.preventDefault()
+        const predefinedTexts = [
+          "Benedict Nkosi",
+          "692948244", 
+          "187 Kitchener avenue, kensington, Johannesburg, 2001"
+        ]
+        const textIndex = parseInt(e.key) - 1
+        if (textIndex >= 0 && textIndex < predefinedTexts.length) {
+          addPredefinedText(predefinedTexts[textIndex])
+        }
+        return
+      }
+
+      // Delete key for selected element
+      if (e.key === 'Delete' && selectedElementId && !isPreviewMode) {
+        e.preventDefault()
+        if (confirm('Delete this text element?')) {
+          deleteTextElement(selectedElementId)
+        }
+        return
+      }
+
+      // Escape to deselect
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        selectTextElement(null)
+        return
+      }
+
+      // Ctrl/Cmd + Z for undo (future enhancement)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault()
+        // TODO: Implement undo functionality
+        console.log('Undo shortcut pressed - feature coming soon!')
+        return
       }
     }
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [pdfData, handlePreview])
+  }, [pdfData, handlePreview, selectedElementId, isPreviewMode, addTextElement, deleteTextElement, selectTextElement, addPredefinedText])
 
   // Global click handler for deselecting elements when clicking away
   useEffect(() => {
@@ -641,6 +732,7 @@ export default function Page() {
                   onTextElementUpdate={updateTextElement}
                   onTextElementSelect={selectTextElement}
                   onAddTextAtPosition={addTextElementAtPosition}
+                  onPageDimensionsChange={handlePageDimensionsChange}
                   isPreviewMode={isPreviewMode}
                 />
               </PDFDropZone>
